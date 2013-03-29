@@ -107,7 +107,6 @@
 		return;
 	};
 	
-	checkInterval = setInterval(checkForUpdates, intervalLength);
-	
+	checkInterval = setInterval(checkForUpdates, intervalLength);	
 	chrome.browserAction.onClicked.addListener(gotoMspa);
 })();
