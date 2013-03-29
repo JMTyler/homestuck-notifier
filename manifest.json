@@ -10,5 +10,9 @@
 		],
 		"persistent": true
 	},
+	"permissions": [
+		"tabs",
+		"http://mspaintadventures.com/*"
+	],
 	"manifest_version": 2
 }
