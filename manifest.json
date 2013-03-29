@@ -1,0 +1,8 @@
+{
+	"name": "MSPA Update Notifier",
+	"version": "1.0",
+	"browser_action": {
+		"default_icon": "mspa_face.gif"
+	},
+	"manifest_version": 2
+}
