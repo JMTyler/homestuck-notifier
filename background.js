@@ -13,6 +13,10 @@
 		intervalLength = localStorage['interval_length'];
 	}
 	
+	/**
+	 * Set button icon as idle, open a new tab with the last page read,
+	 * and set the new 'last page read' as the latest update available.
+	 */
 	var gotoMspa = function()
 	{
 		var lastPageRead = "http://mspaintadventures.com";
@@ -35,6 +39,11 @@
 		return;
 	};
 	
+	/**
+	 * Queries the MSPA RSS feed.  Changes the button icon if there is an error
+	 * or if there are new updates available.  If there are updates, adds a count
+	 * onto the button.
+	 */
 	var checkForUpdates = function()
 	{
 		var lastPageRead = null;
@@ -50,6 +59,7 @@
 			var xml = request.responseXML;
 			if (!xml) {
 				console.log('invalid rss feed received.');
+				chrome.browserAction.setIcon({path: icons.error});
 				return;
 			}
 			
@@ -81,10 +91,7 @@
 				return;
 			}
 			
-			var unreadPagesText = unreadPagesCount + '';
-			if (unreadPagesCount == 40) {
-				unreadPagesText += '+';
-			}
+			var unreadPagesText = unreadPagesCount + (unreadPagesCount == 40 ? '+' : '');
 			
 			localStorage['latest_update'] = latestUpdate;
 			chrome.browserAction.setIcon({path: icons.updates});
