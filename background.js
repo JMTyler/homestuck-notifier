@@ -132,6 +132,7 @@
 		return;
 	};
 	
+	checkForUpdates();
 	checkInterval = setInterval(checkForUpdates, intervalLength);	
 	chrome.browserAction.onClicked.addListener(gotoMspa);
 })();
