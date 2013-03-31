@@ -93,10 +93,28 @@
 			
 			var unreadPagesText = unreadPagesCount + (unreadPagesCount == 40 ? '+' : '');
 			
+			// Setup button for new updates.
 			localStorage['latest_update'] = latestUpdate;
 			chrome.browserAction.setIcon({path: icons.updates});
 			chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
 			chrome.browserAction.setBadgeText({text: unreadPagesText});
+			
+			// Setup notification for new updates.
+			var notification = window.webkitNotifications.createNotification(
+				'48.png',
+				"New MSPA Update!",
+				"Click here to start reading."
+			);
+			notification.onclick = function()
+			{
+				this.close();
+				gotoMspa();
+				return;
+			};
+			notification.show();
+			setInterval(function() {
+				notification.close();
+			}, 10000);
 			
 			return;
 		};
