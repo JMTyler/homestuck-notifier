@@ -125,6 +125,11 @@
 					guid = guid.textContent;
 				}
 				
+				if (lastPageRead == null) {
+					lastPageRead = guid;
+					localStorage['last_page_read'] = guid;
+				}
+				
 				if (guid == lastPageRead) {
 					break;
 				}
