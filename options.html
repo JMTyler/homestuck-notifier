@@ -1,0 +1,41 @@
+
+<html>
+	<head>
+		<script type="text/javascript" src="lib/jquery-1.9.1.min.js"></script>
+		<script type="text/javascript" src="lib/jquery-ui-1.10.2.custom.min.js"></script>
+		<link type="text/css" rel="stylesheet" href="lib/jquery-ui-1.10.2.custom.min.css" />
+		
+		<script type="text/javascript" src="options.js"></script>
+	</head>
+	
+	<body>
+		<div class="section ui-corner-all ui-widget-content" style="padding: 1em 2.2em; width: 35em; margin: 50px auto;">
+			<h1 style="margin-top: 0; margin-bottom: 1em; text-align: center; font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, Arial, sans-serif;">
+				Settings
+			</h1>
+			
+			<h2 style="font-size: 1.2em; font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, Arial, sans-serif;">
+				Toast-like Notifications:
+			</h2>
+			<div id="radToast">
+				<input type="radio" id="radToastOn" name="radToast" value="on" />
+				<label for="radToastOn">On</label>
+				
+				<input type="radio" id="radToastOff" name="radToast" value="off" />
+				<label for="radToastOff">Off</label>
+			</div>
+			
+			<br/>
+			
+			<h2 style="font-size: 1.2em; font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, Arial, sans-serif;">
+				Check for Updates...
+			</h2>
+			<div id="sldFrequency"></div>
+			<span id="lblFrequency" style="font-size: 0.9em; font-weight: bold; display: inline-block; width: 100%; text-align: center; font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, Arial, sans-serif;"></span>
+			
+			<div style="display: inline-block; width: 100%; text-align: center; margin-top: 40px;">
+				<button id="btnSave">Save</button>
+			</div>
+		</div>
+	</body>
+</html>

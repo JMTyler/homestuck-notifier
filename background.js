@@ -1,7 +1,50 @@
 
 (function() {
 	var checkInterval = null,
-		intervalLength = 5000;
+		intervalLength = 300000;  // defaults to 5 minutes
+	
+	var frequencyOptions = {
+		1:  {
+			seconds: 60,
+			readable: "1 minute"
+		},
+		2:  {
+			seconds: 120,
+			readable: "2 minutes"
+		},
+		3:  {
+			seconds: 300,
+			readable: "5 minutes"
+		},
+		4:  {
+			seconds: 600,
+			readable: "10 minutes"
+		},
+		5:  {
+			seconds: 1800,
+			readable: "30 minutes"
+		},
+		6:  {
+			seconds: 3600,
+			readable: "1 hour"
+		},
+		7:  {
+			seconds: 7200,
+			readable: "2 hours"
+		},
+		8:  {
+			seconds: 18000,
+			readable: "5 hours"
+		},
+		9:  {
+			seconds: 43200,
+			readable: "12 hours"
+		},
+		10: {
+			seconds: 86400,
+			readable: "24 hours"
+		}
+	};
 	
 	var icons = {
 		idle: 'mspa_face.gif',
@@ -9,8 +52,8 @@
 		updates: 'whatpumpkin.gif'
 	};
 	
-	if (typeof(localStorage['interval_length']) != 'undefined') {
-		intervalLength = localStorage['interval_length'];
+	if (typeof(localStorage['check_frequency']) != 'undefined') {
+		intervalLength = frequencyOptions[localStorage['check_frequency']].seconds * 1000;
 	}
 	
 	/**
@@ -49,6 +92,11 @@
 		var lastPageRead = null;
 		if (typeof(localStorage['last_page_read']) != 'undefined') {
 			lastPageRead = localStorage['last_page_read'];
+		}
+		
+		var areNotificationsOn = true;
+		if (typeof(localStorage['notifications_on']) != 'undefined') {
+			areNotificationsOn = JSON.parse(localStorage['notifications_on']);
 		}
 		
 		var feedUri = "http://mspaintadventures.com/rss/rss.xml",
@@ -93,28 +141,30 @@
 			
 			var unreadPagesText = unreadPagesCount + (unreadPagesCount == 40 ? '+' : '');
 			
-			// Setup button for new updates.
+			// Update button for new updates.
 			localStorage['latest_update'] = latestUpdate;
 			chrome.browserAction.setIcon({path: icons.updates});
 			chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
 			chrome.browserAction.setBadgeText({text: unreadPagesText});
 			
-			// Setup notification for new updates.
-			var notification = window.webkitNotifications.createNotification(
-				'48.png',
-				"New MSPA Update!",
-				"Click here to start reading."
-			);
-			notification.onclick = function()
-			{
-				this.close();
-				gotoMspa();
-				return;
-			};
-			notification.show();
-			setInterval(function() {
-				notification.close();
-			}, 10000);
+			if (areNotificationsOn) {
+				// Show notification for new updates.
+				var notification = window.webkitNotifications.createNotification(
+					'48.png',
+					"New MSPA Update!",
+					"Click here to start reading (" + unreadPagesText + " updates)."
+				);
+				notification.onclick = function()
+				{
+					this.close();
+					gotoMspa();
+					return;
+				};
+				notification.show();
+				setTimeout(function() {
+					notification.close();
+				}, 10000);
+			}
 			
 			return;
 		};
@@ -133,6 +183,6 @@
 	};
 	
 	checkForUpdates();
-	checkInterval = setInterval(checkForUpdates, intervalLength);	
+	checkInterval = setInterval(checkForUpdates, intervalLength);
 	chrome.browserAction.onClicked.addListener(gotoMspa);
 })();
