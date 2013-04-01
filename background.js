@@ -67,7 +67,7 @@
 			lastPageRead = localStorage['last_page_read'];
 		}
 		
-		var latestUpdate = "http://mspaintadventures.com";
+		var latestUpdate = false;
 		if (typeof(localStorage['latest_update']) != 'undefined') {
 			latestUpdate = localStorage['latest_update'];
 		}
@@ -76,8 +76,10 @@
 		chrome.browserAction.setBadgeText({text: ''});
 		chrome.tabs.create({url: lastPageRead});
 		
-		localStorage['last_page_read'] = latestUpdate;
-		delete localStorage['latest_update'];
+		if (latestUpdate) {
+			localStorage['last_page_read'] = latestUpdate;
+			delete localStorage['latest_update'];
+		}
 		
 		return;
 	};
