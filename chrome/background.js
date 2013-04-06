@@ -91,9 +91,28 @@
 	 */
 	var checkForUpdates = function()
 	{
+		var newIntervalLength = 300000;
+		if (typeof(localStorage['check_frequency']) != 'undefined') {
+			newIntervalLength = frequencyOptions[localStorage['check_frequency']].seconds * 1000;
+		}
+		
+		// Interval length setting has been changed, so reset the interval.
+		if (newIntervalLength != intervalLength) {
+			intervalLength = newIntervalLength;
+			if (checkInterval != null) {
+				clearInterval(checkInterval);
+			}
+			checkInterval = setInterval(checkForUpdates, intervalLength);
+		}
+		
 		var lastPageRead = null;
 		if (typeof(localStorage['last_page_read']) != 'undefined') {
 			lastPageRead = localStorage['last_page_read'];
+		}
+		
+		var latestUpdate = null;
+		if (typeof(localStorage['latest_update']) != 'undefined') {
+			latestUpdate = localStorage['latest_update'];
 		}
 		
 		var areNotificationsOn = true;
@@ -115,7 +134,7 @@
 			
 			var pages = xml.getElementsByTagName('item');
 			var count = Math.min(pages.length, 40);
-			var item, guid, latestUpdate = null;
+			var item, guid, newLatestUpdate = null;
 			var unreadPagesCount = 0;
 			for (var i = 0; i < count; i += 1) {
 				item = pages.item(i);
@@ -134,8 +153,8 @@
 					break;
 				}
 				
-				if (latestUpdate == null) {
-					latestUpdate = guid;
+				if (newLatestUpdate == null) {
+					newLatestUpdate = guid;
 				}
 				
 				unreadPagesCount++;
@@ -146,10 +165,15 @@
 				return;
 			}
 			
+			// No need to pop up the notification more than once for the same update!
+			if (newLatestUpdate == latestUpdate) {
+				return;
+			}
+			
 			var unreadPagesText = unreadPagesCount + (unreadPagesCount == 40 ? '+' : '');
 			
 			// Update button for new updates.
-			localStorage['latest_update'] = latestUpdate;
+			localStorage['latest_update'] = newLatestUpdate;
 			chrome.browserAction.setIcon({path: icons.updates});
 			chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
 			chrome.browserAction.setBadgeText({text: unreadPagesText});
