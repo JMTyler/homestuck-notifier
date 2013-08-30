@@ -43,7 +43,7 @@ $(function() {
 		}
 	};
 	
-	areNotificationsOn = true;
+	var areNotificationsOn = true;
 	if (typeof(localStorage['notifications_on']) != 'undefined') {
 		areNotificationsOn = JSON.parse(localStorage['notifications_on']);
 	}
@@ -56,7 +56,20 @@ $(function() {
 	
 	$('#radToast').buttonset();
 	
-	checkFrequency = 3;
+	var doShowPageCount = true;
+	if (typeof(localStorage['show_page_count']) != 'undefined') {
+		doShowPageCount = JSON.parse(localStorage['show_page_count']);
+	}
+	
+	if (doShowPageCount) {
+		$('#radShowCountOn').prop('checked', true);
+	} else {
+		$('#radShowCountOff').prop('checked', true);
+	}
+	
+	$('#radShowCount').buttonset();
+	
+	var checkFrequency = 3;
 	if (typeof(localStorage['check_frequency']) != 'undefined') {
 		checkFrequency = localStorage['check_frequency'];
 	}
@@ -74,10 +87,12 @@ $(function() {
 	
 	$('#btnSave').button();
 	$('#btnSave').on('click', function() {
-		var areNotificationsOn = $('#radToast :radio:checked').val() == 'on';
-		var checkFrequency = $('#sldFrequency').slider('value');
+		var areNotificationsOn = $('#radToast :radio:checked').val() == 'on',
+			doShowPageCount    = $('#radShowCount :radio:checked').val() == 'on',
+			checkFrequency     = $('#sldFrequency').slider('value');
 		
 		localStorage['notifications_on'] = areNotificationsOn;
-		localStorage['check_frequency'] = checkFrequency;
+		localStorage['show_page_count']  = doShowPageCount;
+		localStorage['check_frequency']  = checkFrequency;
 	});
 });

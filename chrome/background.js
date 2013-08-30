@@ -1,6 +1,7 @@
 
 (function() {
-	var checkInterval = null,
+	var isDebugMode = false,
+		checkInterval = null,
 		intervalLength = 300000;  // defaults to 5 minutes
 	
 	var frequencyOptions = {
@@ -60,7 +61,7 @@
 	 * Set button icon as idle, open a new tab with the last page read,
 	 * and set the new 'last page read' as the latest update available.
 	 */
-	var gotoMspa = function()
+	var _gotoMspa = function()
 	{
 		var lastPageRead = "http://mspaintadventures.com";
 		if (typeof(localStorage['last_page_read']) != 'undefined') {
@@ -89,7 +90,7 @@
 	 * or if there are new updates available.  If there are updates, adds a count
 	 * onto the button.
 	 */
-	var checkForUpdates = function()
+	var _checkForUpdates = function()
 	{
 		var newIntervalLength = 300000;
 		if (typeof(localStorage['check_frequency']) != 'undefined') {
@@ -102,7 +103,7 @@
 			if (checkInterval != null) {
 				clearInterval(checkInterval);
 			}
-			checkInterval = setInterval(checkForUpdates, intervalLength);
+			checkInterval = setInterval(_checkForUpdates, intervalLength);
 		}
 		
 		var lastPageRead = null;
@@ -118,6 +119,11 @@
 		var areNotificationsOn = true;
 		if (typeof(localStorage['notifications_on']) != 'undefined') {
 			areNotificationsOn = JSON.parse(localStorage['notifications_on']);
+		}
+		
+		var doShowPageCount = true;
+		if (typeof(localStorage['show_page_count']) != 'undefined') {
+			doShowPageCount = JSON.parse(localStorage['show_page_count']);
 		}
 		
 		var feedUri = "http://mspaintadventures.com/rss/rss.xml",
@@ -175,20 +181,22 @@
 			// Update button for new updates.
 			localStorage['latest_update'] = newLatestUpdate;
 			chrome.browserAction.setIcon({path: icons.updates});
-			chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
-			chrome.browserAction.setBadgeText({text: unreadPagesText});
+			if (doShowPageCount) {
+				chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
+				chrome.browserAction.setBadgeText({text: unreadPagesText});
+			}
 			
 			if (areNotificationsOn) {
 				// Show notification for new updates.
 				var notification = window.webkitNotifications.createNotification(
 					'48.png',
 					"New MSPA Update!",
-					"Click here to start reading (" + unreadPagesText + " updates)."
+					"Click here to start reading!" + (doShowPageCount ? ("\n" + unreadPagesText + " pages") : "")
 				);
 				notification.onclick = function()
 				{
 					this.close();
-					gotoMspa();
+					_gotoMspa();
 					return;
 				};
 				notification.show();
@@ -213,7 +221,24 @@
 		return;
 	};
 	
-	checkForUpdates();
-	checkInterval = setInterval(checkForUpdates, intervalLength);
-	chrome.browserAction.onClicked.addListener(gotoMspa);
+	var _clearData = function()
+	{
+		chrome.browserAction.setIcon({path: icons.idle});
+		chrome.browserAction.setBadgeText({text: ''});
+		delete localStorage['last_page_read'];
+		delete localStorage['latest_update'];
+		delete localStorage['notifications_on'];
+		delete localStorage['show_page_count'];
+		delete localStorage['check_frequency'];
+	};
+	
+	if (isDebugMode) {
+		window.gotoMspa = function(){ _gotoMspa(); };
+		window.checkForUpdates = function(){ _checkForUpdate(); };
+		window.clearData = function(){ _clearData(); };
+	}
+	
+	_checkForUpdates();
+	checkInterval = setInterval(_checkForUpdates, intervalLength);
+	chrome.browserAction.onClicked.addListener(_gotoMspa);
 })();
