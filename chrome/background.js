@@ -1,51 +1,22 @@
 
+/*	TODO:
+	use jQuery Deferred objects for promises...
+	var promise = (function() {
+		var deferred = $.Deferred();
+		setTimeout(function() {
+			deferred.resolve({objects_processed: 3});
+		}, 5000);
+		return deferred.promise();
+	})();
+	promise.done(function(result) {
+		console.log('objects processed: ' + result.objects_processed);
+	});
+*/
+
 (function() {
 	var isDebugMode = false,
 		checkInterval = null,
-		intervalLength = 300000;  // defaults to 5 minutes
-	
-	var frequencyOptions = {
-		1:  {
-			seconds: 60,
-			readable: "1 minute"
-		},
-		2:  {
-			seconds: 120,
-			readable: "2 minutes"
-		},
-		3:  {
-			seconds: 300,
-			readable: "5 minutes"
-		},
-		4:  {
-			seconds: 600,
-			readable: "10 minutes"
-		},
-		5:  {
-			seconds: 1800,
-			readable: "30 minutes"
-		},
-		6:  {
-			seconds: 3600,
-			readable: "1 hour"
-		},
-		7:  {
-			seconds: 7200,
-			readable: "2 hours"
-		},
-		8:  {
-			seconds: 18000,
-			readable: "5 hours"
-		},
-		9:  {
-			seconds: 43200,
-			readable: "12 hours"
-		},
-		10: {
-			seconds: 86400,
-			readable: "24 hours"
-		}
-	};
+		intervalLength = null;  // defaults to 5 minutes
 	
 	var icons = {
 		idle: 'mspa_face.gif',
@@ -53,9 +24,8 @@
 		updates: 'whatpumpkin.gif'
 	};
 	
-	if (typeof(localStorage['check_frequency']) != 'undefined') {
-		intervalLength = frequencyOptions[localStorage['check_frequency']].seconds * 1000;
-	}
+	
+	intervalLength = jmtyler.settings.map('check_frequency').seconds * 1000;
 	
 	/**
 	 * Set button icon as idle, open a new tab with the last page read,
@@ -63,23 +33,16 @@
 	 */
 	var _gotoMspa = function()
 	{
-		var lastPageRead = "http://mspaintadventures.com";
-		if (typeof(localStorage['last_page_read']) != 'undefined') {
-			lastPageRead = localStorage['last_page_read'];
-		}
-		
-		var latestUpdate = false;
-		if (typeof(localStorage['latest_update']) != 'undefined') {
-			latestUpdate = localStorage['latest_update'];
-		}
+		var latestUpdate = jmtyler.memory.get('latest_update'),
+			lastPageRead = jmtyler.memory.get('last_page_read') || "http://mspaintadventures.com";
 		
 		chrome.browserAction.setIcon({path: icons.idle});
 		chrome.browserAction.setBadgeText({text: ''});
 		chrome.tabs.create({url: lastPageRead});
 		
 		if (latestUpdate) {
-			localStorage['last_page_read'] = latestUpdate;
-			delete localStorage['latest_update'];
+			jmtyler.memory.set('last_page_read', latestUpdate);
+			jmtyler.memory.clear('latest_update');
 		}
 		
 		return;
@@ -92,10 +55,9 @@
 	 */
 	var _checkForUpdates = function()
 	{
-		var newIntervalLength = 300000;
-		if (typeof(localStorage['check_frequency']) != 'undefined') {
-			newIntervalLength = frequencyOptions[localStorage['check_frequency']].seconds * 1000;
-		}
+		var areNotificationsOn = jmtyler.settings.get('notifications_on'),
+			doShowPageCount    = jmtyler.settings.get('show_page_count'),
+			newIntervalLength  = jmtyler.settings.map('check_frequency').seconds * 1000;
 		
 		// Interval length setting has been changed, so reset the interval.
 		if (newIntervalLength != intervalLength) {
@@ -106,25 +68,8 @@
 			checkInterval = setInterval(_checkForUpdates, intervalLength);
 		}
 		
-		var lastPageRead = null;
-		if (typeof(localStorage['last_page_read']) != 'undefined') {
-			lastPageRead = localStorage['last_page_read'];
-		}
-		
-		var latestUpdate = null;
-		if (typeof(localStorage['latest_update']) != 'undefined') {
-			latestUpdate = localStorage['latest_update'];
-		}
-		
-		var areNotificationsOn = true;
-		if (typeof(localStorage['notifications_on']) != 'undefined') {
-			areNotificationsOn = JSON.parse(localStorage['notifications_on']);
-		}
-		
-		var doShowPageCount = true;
-		if (typeof(localStorage['show_page_count']) != 'undefined') {
-			doShowPageCount = JSON.parse(localStorage['show_page_count']);
-		}
+		var lastPageRead = jmtyler.memory.get('last_page_read'),
+			latestUpdate = jmtyler.memory.get('latest_update');
 		
 		var feedUri = "http://mspaintadventures.com/rss/rss.xml",
 			request = new XMLHttpRequest();
@@ -152,7 +97,7 @@
 				
 				if (lastPageRead == null) {
 					lastPageRead = guid;
-					localStorage['last_page_read'] = guid;
+					jmtyler.memory.set('last_page_read', guid);
 				}
 				
 				if (guid == lastPageRead) {
@@ -179,7 +124,7 @@
 			var unreadPagesText = unreadPagesCount + (unreadPagesCount == 40 ? '+' : '');
 			
 			// Update button for new updates.
-			localStorage['latest_update'] = newLatestUpdate;
+			jmtyler.memory.set('latest_update', newLatestUpdate);
 			chrome.browserAction.setIcon({path: icons.updates});
 			if (doShowPageCount) {
 				chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
@@ -223,18 +168,15 @@
 	
 	var _clearData = function()
 	{
+		jmtyler.settings.clear();
+		jmtyler.memory.clear();
 		chrome.browserAction.setIcon({path: icons.idle});
 		chrome.browserAction.setBadgeText({text: ''});
-		delete localStorage['last_page_read'];
-		delete localStorage['latest_update'];
-		delete localStorage['notifications_on'];
-		delete localStorage['show_page_count'];
-		delete localStorage['check_frequency'];
 	};
 	
 	if (isDebugMode) {
 		window.gotoMspa = function(){ _gotoMspa(); };
-		window.checkForUpdates = function(){ _checkForUpdate(); };
+		window.checkForUpdates = function(){ _checkForUpdates(); };
 		window.clearData = function(){ _clearData(); };
 	}
 	

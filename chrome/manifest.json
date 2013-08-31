@@ -8,7 +8,7 @@
 		"default_icon": "mspa_face.gif"
 	},
 	"background": {
-		"scripts": ["background.js"],
+		"scripts": ["settings.js", "memory.js", "background.js"],
 		"persistent": true
 	},
 	"options_page": "options.html",
