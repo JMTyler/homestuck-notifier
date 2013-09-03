@@ -10,7 +10,8 @@ window.jmtyler.settings = (function()
 	var _defaults = {
 		'notifications_on' : true,
 		'show_page_count'  : true,
-		'check_frequency'  : 3
+		'check_frequency'  : 3,
+		'toast_icon_uri'   : '48.png'
 	};
 	
 	var _maps = {

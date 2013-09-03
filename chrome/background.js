@@ -134,7 +134,7 @@
 			if (areNotificationsOn) {
 				// Show notification for new updates.
 				var notification = window.webkitNotifications.createNotification(
-					'48.png',
+					jmtyler.settings.get('toast_icon_uri'),
 					"New MSPA Update!",
 					"Click here to start reading!" + (doShowPageCount ? ("\n" + unreadPagesText + " pages") : "")
 				);
