@@ -59,7 +59,7 @@
 			newIntervalLength  = jmtyler.settings.map('check_frequency').seconds * 1000;
 		
 		// Interval length setting has been changed, so reset the interval.
-		if (newIntervalLength != intervalLength) {
+		if (newIntervalLength != intervalLength && !isDebugMode) {
 			intervalLength = newIntervalLength;
 			if (checkInterval != null) {
 				clearInterval(checkInterval);
@@ -71,99 +71,123 @@
 			latestUpdate = jmtyler.memory.get('latest_update');
 		
 		var feedUri = "http://mspaintadventures.com/rss/rss.xml",
-			request = new XMLHttpRequest();
+			pingRequest = new XMLHttpRequest();
 		
-		request.onload = function()
+		pingRequest.onload = function()
 		{
-			var xml = request.responseXML;
-			if (!xml) {
-				console.log('invalid rss feed received.');
+			var myLastModified    = jmtyler.memory.get('http_last_modified'),
+				theirLastModified = pingRequest.getResponseHeader('Last-Modified');
+			
+			if (myLastModified == theirLastModified) {
+				// No updates.
+				return;
+			}
+			
+			jmtyler.memory.set('http_last_modified', theirLastModified);
+			
+			var contentRequest = new XMLHttpRequest();
+			contentRequest.onload = function()
+			{
+				var xml = contentRequest.responseXML;
+				if (!xml) {
+					console.log('invalid rss feed received.');
+					chrome.browserAction.setIcon({path: icons.error});
+					return;
+				}
+				
+				var pages = xml.getElementsByTagName('item');
+				var count = Math.min(pages.length, 40);
+				var item, guid, newLatestUpdate = null;
+				var unreadPagesCount = 0;
+				for (var i = 0; i < count; i += 1) {
+					item = pages.item(i);
+					
+					guid = item.getElementsByTagName('guid')[0];
+					if (guid) {
+						guid = guid.textContent;
+					}
+					
+					if (lastPageRead == null) {
+						lastPageRead = guid;
+						jmtyler.memory.set('last_page_read', guid);
+					}
+					
+					if (guid == lastPageRead) {
+						break;
+					}
+					
+					if (newLatestUpdate == null) {
+						newLatestUpdate = guid;
+					}
+					
+					unreadPagesCount++;
+				}
+				
+				if (unreadPagesCount < 1) {
+					chrome.browserAction.setIcon({path: icons.idle});
+					return;
+				}
+				
+				// No need to pop up the notification more than once for the same update!
+				if (newLatestUpdate == latestUpdate) {
+					return;
+				}
+				
+				var unreadPagesText = unreadPagesCount + (unreadPagesCount == 40 ? '+' : '');
+				
+				// Update button for new updates.
+				jmtyler.memory.set('latest_update', newLatestUpdate);
+				chrome.browserAction.setIcon({path: icons.updates});
+				if (doShowPageCount) {
+					chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
+					chrome.browserAction.setBadgeText({text: unreadPagesText});
+				}
+				
+				if (areNotificationsOn) {
+					// Show notification for new updates.
+					var notification = window.webkitNotifications.createNotification(
+						jmtyler.settings.get('toast_icon_uri'),
+						"New MSPA Update!",
+						"Click here to start reading!" + (doShowPageCount ? ("\n" + unreadPagesText + " pages") : "")
+					);
+					notification.onclick = function()
+					{
+						this.close();
+						_gotoMspa();
+						return;
+					};
+					
+					_playSound();
+					notification.show();
+					
+					setTimeout(function() {
+						notification.close();
+					}, 10000);
+				}
+			};
+			
+			contentRequest.onerror = function()
+			{
+				console.log('something went wrong, brotha.');
 				chrome.browserAction.setIcon({path: icons.error});
 				return;
-			}
+			};
 			
-			var pages = xml.getElementsByTagName('item');
-			var count = Math.min(pages.length, 40);
-			var item, guid, newLatestUpdate = null;
-			var unreadPagesCount = 0;
-			for (var i = 0; i < count; i += 1) {
-				item = pages.item(i);
-				
-				guid = item.getElementsByTagName('guid')[0];
-				if (guid) {
-					guid = guid.textContent;
-				}
-				
-				if (lastPageRead == null) {
-					lastPageRead = guid;
-					jmtyler.memory.set('last_page_read', guid);
-				}
-				
-				if (guid == lastPageRead) {
-					break;
-				}
-				
-				if (newLatestUpdate == null) {
-					newLatestUpdate = guid;
-				}
-				
-				unreadPagesCount++;
-			}
-			
-			if (unreadPagesCount < 1) {
-				chrome.browserAction.setIcon({path: icons.idle});
-				return;
-			}
-			
-			// No need to pop up the notification more than once for the same update!
-			if (newLatestUpdate == latestUpdate) {
-				return;
-			}
-			
-			var unreadPagesText = unreadPagesCount + (unreadPagesCount == 40 ? '+' : '');
-			
-			// Update button for new updates.
-			jmtyler.memory.set('latest_update', newLatestUpdate);
-			chrome.browserAction.setIcon({path: icons.updates});
-			if (doShowPageCount) {
-				chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
-				chrome.browserAction.setBadgeText({text: unreadPagesText});
-			}
-			
-			if (areNotificationsOn) {
-				// Show notification for new updates.
-				var notification = window.webkitNotifications.createNotification(
-					jmtyler.settings.get('toast_icon_uri'),
-					"New MSPA Update!",
-					"Click here to start reading!" + (doShowPageCount ? ("\n" + unreadPagesText + " pages") : "")
-				);
-				notification.onclick = function()
-				{
-					this.close();
-					_gotoMspa();
-					return;
-				};
-				
-				_playSound();
-				notification.show();
-				
-				setTimeout(function() {
-					notification.close();
-				}, 10000);
-			}
+			contentRequest.open('GET', feedUri, true);
+			contentRequest.send(null);
 			
 			return;
 		};
 		
-		request.onerror = function()
+		pingRequest.onerror = function()
 		{
-			console.log('something went wrong, brotha.')
+			console.log('something went wrong, brotha.');
 			chrome.browserAction.setIcon({path: icons.error});
 			return;
 		};
 		
-		request.open('GET', feedUri, true);
-		request.send(null);
+		pingRequest.open('HEAD', feedUri, true);
+		pingRequest.send(null);
 		
 		return;
 	};
@@ -204,7 +228,9 @@
 		window.clearData = function(){ _clearData(); };
 	}
 	
-	_checkForUpdates();
-	checkInterval = setInterval(_checkForUpdates, intervalLength);
+	if (!isDebugMode) {
+		_checkForUpdates();
+		checkInterval = setInterval(_checkForUpdates, intervalLength);
+	}
 	chrome.browserAction.onClicked.addListener(_gotoMspa);
 })();
