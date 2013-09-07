@@ -45,6 +45,24 @@ $(function() {
 		fileReader.readAsDataURL(file);
 	});
 	
+	var toastSoundUri = jmtyler.settings.get('toast_sound_uri');
+	$('#audToastSound').prop('src', toastSoundUri);
+	$('#fileToastSound').on('change', function(event) {
+		var file = event.target.files[0];  // TODO: can this array be empty?
+		if (!file.type.match('audio.*')) {
+			// TODO: display an error of some kind
+			//		 specifically for midis... I bet a lot of people will want midis
+			return;
+		}
+		// TODO: worthwhile to encapsulate file operations?
+		var fileReader = new FileReader();
+		fileReader.onload = function(event) {
+			toastSoundUri = event.target.result;
+			$('#audToastSound').prop('src', toastSoundUri);
+		};
+		fileReader.readAsDataURL(file);
+	});
+	
 	// TODO: eventually implement live edit
 	$('#btnSave').button();
 	$('#btnSave').on('click', function() {
@@ -56,6 +74,7 @@ $(function() {
 			.set('show_page_count', doShowPageCount)
 			.set('check_frequency', checkFrequency)
 			.set('toast_icon_uri', toastIconUri)
+			.set('toast_sound_uri', toastSoundUri)
 			.save();
 	});
 });

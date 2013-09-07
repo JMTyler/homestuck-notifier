@@ -24,7 +24,6 @@
 		updates: 'whatpumpkin.gif'
 	};
 	
-	
 	intervalLength = jmtyler.settings.map('check_frequency').seconds * 1000;
 	
 	/**
@@ -144,7 +143,10 @@
 					_gotoMspa();
 					return;
 				};
+				
+				_playSound();
 				notification.show();
+				
 				setTimeout(function() {
 					notification.close();
 				}, 10000);
@@ -166,6 +168,27 @@
 		return;
 	};
 	
+	var _playSound = function()
+	{
+		var toastSoundUri = jmtyler.settings.get('toast_sound_uri');
+		if (toastSoundUri == null) {
+			return;
+		}
+		
+		var audio = document.getElementsByTagName('audio');
+		if (audio.length > 0) {
+			audio = audio[0];
+		} else {
+			audio = document.createElement('audio');
+			document.body.appendChild(audio);
+			audio.autoplay = true;
+			audio.controls = false;
+			audio.volume = 1.0;
+		}
+		
+		audio.src = toastSoundUri;
+	};
+	
 	var _clearData = function()
 	{
 		jmtyler.settings.clear();
@@ -177,6 +200,7 @@
 	if (isDebugMode) {
 		window.gotoMspa = function(){ _gotoMspa(); };
 		window.checkForUpdates = function(){ _checkForUpdates(); };
+		window.playSound = function(){ _playSound(); };
 		window.clearData = function(){ _clearData(); };
 	}
 	

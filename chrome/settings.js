@@ -62,9 +62,7 @@ window.jmtyler.settings = (function()
 	return {
 		get: function(key)
 		{
-			if (_settings === null) {
-				this.load();
-			}
+			this.load();
 			
 			if (typeof(_settings[key]) == 'undefined') {
 				return null;
@@ -74,9 +72,7 @@ window.jmtyler.settings = (function()
 		},
 		set: function(key, value)
 		{
-			if (_settings === null) {
-				this.load();
-			}
+			this.load();
 			
 			_settings[key] = value;
 			
