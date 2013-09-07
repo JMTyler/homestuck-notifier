@@ -1,35 +1,20 @@
 
 $(function() {
-	var areNotificationsOn = jmtyler.settings.get('notifications_on');
-	if (areNotificationsOn) {
-		$('#radToastOn').prop('checked', true);
-	} else {
-		$('#radToastOff').prop('checked', true);
-	}
+	var toastIconUri = null,
+		toastSoundUri = null;
+		
 	$('#radToast').buttonset();
-	
-	var doShowPageCount = jmtyler.settings.get('show_page_count');
-	if (doShowPageCount) {
-		$('#radShowCountOn').prop('checked', true);
-	} else {
-		$('#radShowCountOff').prop('checked', true);
-	}
 	$('#radShowCount').buttonset();
-	
-	var checkFrequency = jmtyler.settings.get('check_frequency');
 	$('#sldFrequency').slider({
 		range: 'min',
-		value: checkFrequency,
+		value: 1,
 		min: 1,  // TODO: could hypothetically get first and last elements from Options.map()
 		max: 10,
 		slide: function(event, ui) {
 			$('#lblFrequency').text("every " + jmtyler.settings.map('check_frequency', ui.value).readable);
 		}
 	});
-	$('#lblFrequency').text("every " + jmtyler.settings.map('check_frequency', $('#sldFrequency').slider('value')).readable);
 	
-	var toastIconUri = jmtyler.settings.get('toast_icon_uri');
-	$('#imgToastIcon').prop('src', toastIconUri);
 	$('#fileToastIcon').on('change', function(event) {
 		var file = event.target.files[0];  // TODO: can this array be empty?
 		if (!file.type.match('image.*')) {
@@ -45,8 +30,6 @@ $(function() {
 		fileReader.readAsDataURL(file);
 	});
 	
-	var toastSoundUri = jmtyler.settings.get('toast_sound_uri');
-	$('#audToastSound').prop('src', toastSoundUri);
 	$('#fileToastSound').on('change', function(event) {
 		var file = event.target.files[0];  // TODO: can this array be empty?
 		if (!file.type.match('audio.*')) {
@@ -63,6 +46,35 @@ $(function() {
 		fileReader.readAsDataURL(file);
 	});
 	
+	var _initializeSettings = function()
+	{
+		var areNotificationsOn = jmtyler.settings.get('notifications_on');
+		if (areNotificationsOn) {
+			$('#radToastOn').prop('checked', true);
+		} else {
+			$('#radToastOff').prop('checked', true);
+		}
+		$('#radToastOff').button('refresh');
+		
+		var doShowPageCount = jmtyler.settings.get('show_page_count');
+		if (doShowPageCount) {
+			$('#radShowCountOn').prop('checked', true);
+		} else {
+			$('#radShowCountOff').prop('checked', true);
+		}
+		$('#radShowCountOff').button('refresh');
+		
+		var checkFrequency = jmtyler.settings.get('check_frequency');
+		$('#sldFrequency').slider('value', checkFrequency);
+		$('#lblFrequency').text("every " + jmtyler.settings.map('check_frequency').readable);
+		
+		toastIconUri = jmtyler.settings.get('toast_icon_uri');
+		$('#imgToastIcon').prop('src', toastIconUri);
+		
+		toastSoundUri = jmtyler.settings.get('toast_sound_uri');
+		$('#audToastSound').prop('src', toastSoundUri);
+	};
+	
 	// TODO: eventually implement live edit
 	$('#btnSave').button();
 	$('#btnSave').on('click', function() {
@@ -77,4 +89,12 @@ $(function() {
 			.set('toast_sound_uri', toastSoundUri)
 			.save();
 	});
+	
+	$('#btnReset').button();
+	$('#btnReset').on('click', function() {
+		jmtyler.settings.clear();
+		_initializeSettings();
+	});
+	
+	_initializeSettings();
 });
