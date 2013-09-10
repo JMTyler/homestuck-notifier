@@ -75,6 +75,8 @@
 		
 		pingRequest.onload = function()
 		{
+			chrome.browserAction.setIcon({path: (lastPageRead == latestUpdate) ? icons.idle : icons.updates});
+			
 			var myLastModified    = jmtyler.memory.get('http_last_modified'),
 				theirLastModified = pingRequest.getResponseHeader('Last-Modified');
 			
