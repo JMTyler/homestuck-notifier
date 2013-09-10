@@ -1,5 +1,5 @@
 /**
- * TODO: Auto-save, like memory.  Use chrome.storage.local/sync.  Further encapsulate details such as defaults and maps.
+ * TODO: Use chrome.storage.local/sync.  Further encapsulate details such as defaults and maps.
  */
 
 window.jmtyler = window.jmtyler || {};
@@ -59,10 +59,42 @@ window.jmtyler.settings = (function()
 		}
 	};
 	
+	var _load = function()
+	{
+		_settings = {};
+		if (typeof(localStorage['options']) != 'undefined') {
+			_settings = JSON.parse(localStorage['options']);
+		}
+		
+		for (var key in _defaults) {
+			if (!_defaults.hasOwnProperty(key)) {
+				continue;
+			}
+			
+			if (typeof(_settings[key]) == 'undefined') {
+				_settings[key] = _defaults[key];
+			}
+		}
+	};
+	
+	var _save = function()
+	{
+		if (_settings === null) {
+			// Nothing to save!
+			return;
+		}
+		
+		localStorage['options'] = JSON.stringify(_settings);
+	};
+	
 	return {
 		get: function(key)
 		{
-			this.load();
+			_load();
+			
+			if (typeof(key) == 'undefined') {
+				return _settings;
+			}
 			
 			if (typeof(_settings[key]) == 'undefined') {
 				return null;
@@ -72,47 +104,24 @@ window.jmtyler.settings = (function()
 		},
 		set: function(key, value)
 		{
-			this.load();
-			
+			_load();
 			_settings[key] = value;
+			_save();
 			
 			return this;
 		},
-		load: function()
+		clear: function(key)
 		{
-			_settings = {};
-			if (typeof(localStorage['options']) != 'undefined') {
-				_settings = JSON.parse(localStorage['options']);
-			}
-			
-			for (var key in _defaults) {
-				if (!_defaults.hasOwnProperty(key)) {
-					continue;
-				}
-				
-				if (typeof(_settings[key]) == 'undefined') {
-					_settings[key] = _defaults[key];
-				}
-			}
-			
-			return this;
-		},
-		save: function()
-		{
-			if (_settings === null) {
-				// Nothing to save!
+			if (typeof(key) == 'undefined' || key === null) {
+				_settings = {};
+				_save();
 				return this;
 			}
 			
-			localStorage['options'] = JSON.stringify(_settings);
+			_load();
+			delete _settings[key];
+			_save();
 			
-			return this;
-		},
-		clear: function()
-		{
-			// TODO: copy memory
-			_settings = {};
-			this.save();
 			return this;
 		},
 		map: function(key, value)

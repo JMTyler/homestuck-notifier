@@ -7,11 +7,41 @@ window.jmtyler.memory = (function()
 		'latest_update': false
 	};
 	
+	var _load = function()
+	{
+		_memory = {};
+		if (typeof(localStorage['memory']) != 'undefined') {
+			_memory = JSON.parse(localStorage['memory']);
+		}
+		
+		for (var key in _defaults) {
+			if (!_defaults.hasOwnProperty(key)) {
+				continue;
+			}
+			
+			if (typeof(_memory[key]) == 'undefined') {
+				_memory[key] = _defaults[key];
+			}
+		}
+	};
+	
+	var _save = function()
+	{
+		if (_memory === null) {
+			// Nothing to save!
+			return;
+		}
+		
+		localStorage['memory'] = JSON.stringify(_memory);
+	};
+	
 	return {
 		get: function(key)
 		{
-			if (_memory === null) {
-				this.load();
+			_load();
+			
+			if (typeof(key) == 'undefined') {
+				return _memory;
 			}
 			
 			if (typeof(_memory[key]) == 'undefined') {
@@ -22,31 +52,9 @@ window.jmtyler.memory = (function()
 		},
 		set: function(key, value)
 		{
-			if (_memory === null) {
-				this.load();
-			}
-			
+			_load();
 			_memory[key] = value;
-			localStorage['memory'] = JSON.stringify(_memory);
-			
-			return this;
-		},
-		load: function()
-		{
-			_memory = {};
-			if (typeof(localStorage['memory']) != 'undefined') {
-				_memory = JSON.parse(localStorage['memory']);
-			}
-			
-			for (var key in _defaults) {
-				if (!_defaults.hasOwnProperty(key)) {
-					continue;
-				}
-				
-				if (typeof(_memory[key]) == 'undefined') {
-					_memory[key] = _defaults[key];
-				}
-			}
+			_save();
 			
 			return this;
 		},
@@ -54,15 +62,13 @@ window.jmtyler.memory = (function()
 		{
 			if (typeof(key) == 'undefined' || key === null) {
 				_memory = {};
-				localStorage['memory'] = JSON.stringify(_memory);
+				_save();
 				return this;
 			}
 			
-			if (_memory === null) {
-				this.load();
-			}
-			
+			_load();
 			delete _memory[key];
+			_save();
 			
 			return this;
 		}

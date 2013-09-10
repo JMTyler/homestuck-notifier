@@ -86,8 +86,7 @@ $(function() {
 			.set('show_page_count', doShowPageCount)
 			.set('check_frequency', checkFrequency)
 			.set('toast_icon_uri', toastIconUri)
-			.set('toast_sound_uri', toastSoundUri)
-			.save();
+			.set('toast_sound_uri', toastSoundUri);
 	});
 	
 	$('#btnReset').button();
