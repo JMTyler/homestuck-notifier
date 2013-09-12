@@ -16,7 +16,7 @@
 (function() {
 	var isDebugMode = false,
 		checkInterval = null,
-		intervalLength = null;  // defaults to 5 minutes
+		intervalLength = null;
 	
 	var icons = {
 		idle: 'mspa_face.gif',
@@ -24,7 +24,27 @@
 		updates: 'whatpumpkin.gif'
 	};
 	
-	intervalLength = jmtyler.settings.map('check_frequency').seconds * 1000;
+	var _main = function()
+	{
+		intervalLength = jmtyler.settings.map('check_frequency').seconds * 1000;
+		
+		chrome.browserAction.setIcon({path: icons.idle});
+		chrome.browserAction.onClicked.addListener(_gotoMspa);
+		
+		// Make some key functions globally accessible for debug mode.
+		if (isDebugMode) {
+			window.gotoMspa = function(){ _gotoMspa(); };
+			window.checkForUpdates = function(){ _checkForUpdates(); };
+			window.playSound = function(){ _playSound(); };
+			window.clearData = function(){ _clearData(); };
+			
+			return;  // Don't want the interval running during debug mode.
+		}
+		
+		// Kick it all off!
+		checkInterval = setInterval(_checkForUpdates, intervalLength);
+		_checkForUpdates();
+	};
 	
 	/**
 	 * Set button icon as idle, open a new tab with the last page read,
@@ -58,7 +78,7 @@
 			doShowPageCount    = jmtyler.settings.get('show_page_count'),
 			newIntervalLength  = jmtyler.settings.map('check_frequency').seconds * 1000;
 		
-		// Interval length setting has been changed, so reset the interval.
+		// Interval length setting has been changed, so set a new interval.
 		if (newIntervalLength != intervalLength && !isDebugMode) {
 			intervalLength = newIntervalLength;
 			if (checkInterval != null) {
@@ -70,11 +90,14 @@
 		var lastPageRead = jmtyler.memory.get('last_page_read'),
 			latestUpdate = jmtyler.memory.get('latest_update');
 		
+		// TODO: All the following XHR crap is incredibly grotesque... put some time into encapsulating & simplifying it.
+		
 		var feedUri = "http://mspaintadventures.com/rss/rss.xml",
 			pingRequest = new XMLHttpRequest();
 		
 		pingRequest.onload = function()
 		{
+			// In case the last ping resulted in an error, make sure we set the icon back to normal.
 			chrome.browserAction.setIcon({path: (lastPageRead == latestUpdate) ? icons.idle : icons.updates});
 			
 			var myLastModified    = jmtyler.memory.get('http_last_modified'),
@@ -156,7 +179,6 @@
 					{
 						this.close();
 						_gotoMspa();
-						return;
 					};
 					
 					_playSound();
@@ -170,6 +192,7 @@
 			
 			contentRequest.onerror = function()
 			{
+				// TODO: Seriously have to improve my error reporting.
 				console.log('something went wrong, brotha.');
 				chrome.browserAction.setIcon({path: icons.error});
 				return;
@@ -201,10 +224,12 @@
 			return;
 		}
 		
+		// Get the existing <audio /> element from the page, if one's already been created ...
 		var audio = document.getElementsByTagName('audio');
 		if (audio.length > 0) {
 			audio = audio[0];
 		} else {
+			// ... if not, create it.
 			audio = document.createElement('audio');
 			document.body.appendChild(audio);
 			audio.autoplay = true;
@@ -212,6 +237,7 @@
 			audio.volume = 1.0;
 		}
 		
+		// Bam.  Audio automatically plays when you set the 'src' property, apparently.
 		audio.src = toastSoundUri;
 	};
 	
@@ -223,16 +249,34 @@
 		chrome.browserAction.setBadgeText({text: ''});
 	};
 	
-	if (isDebugMode) {
-		window.gotoMspa = function(){ _gotoMspa(); };
-		window.checkForUpdates = function(){ _checkForUpdates(); };
-		window.playSound = function(){ _playSound(); };
-		window.clearData = function(){ _clearData(); };
-	}
+	chrome.runtime.onUpdateAvailable.addListener(function() {
+		chrome.runtime.reload();
+	});
 	
-	if (!isDebugMode) {
-		_checkForUpdates();
-		checkInterval = setInterval(_checkForUpdates, intervalLength);
+	var _currentVersion = chrome.runtime.getManifest().version;
+	chrome.runtime.onInstalled.addListener(function(details) {
+		if (_currentVersion == details.previousVersion) {
+			return;
+		}
+		
+		// If the latest version has already been fully installed, don't do anything. (Not sure how we got here, though.)
+		if (jmtyler.version.isInstalled(_currentVersion)) {
+			return;
+		}
+		
+		// Install the latest version, performing any necessary migrations.
+		if (details.reason == "install") {
+			jmtyler.version.install(_currentVersion);
+		} else if (details.reason == "update") {
+			jmtyler.version.update(details.previousVersion);
+		}
+		
+		// Now that we've finished any migrations, we can run the main process.
+		_main();
+	});
+	
+	// Only run the main process immediately if the latest version has already been fully installed.
+	if (jmtyler.version.isInstalled(_currentVersion)) {
+		_main();
 	}
-	chrome.browserAction.onClicked.addListener(_gotoMspa);
 })();
