@@ -41,7 +41,7 @@ window.jmtyler.version = (function()
 		_updates[details.to] = {
 			run: function() {
 				details.with();
-				localStorage['version'] = details.to;
+				jmtyler.memory.set('version', details.to);
 			},
 			next: function() {
 				return false;
@@ -51,7 +51,7 @@ window.jmtyler.version = (function()
 		if (typeof _updates[details.from] == 'undefined') {
 			_updates[details.from] = {
 				run: function() {
-					localStorage['version'] = details.from;
+					jmtyler.memory.set('version', details.from);
 				}
 			};
 		}
@@ -85,7 +85,7 @@ window.jmtyler.version = (function()
 		},
 		isInstalled: function(version)
 		{
-			if (localStorage['version'] == version) {
+			if (jmtyler.memory.get('version') == version) {
 				return true;
 			}
 			
