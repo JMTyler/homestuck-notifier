@@ -2,7 +2,9 @@
 $(function() {
 	var toastIconUri = null,
 		toastSoundUri = null;
-		
+	
+	$('#lblVersion').text(chrome.runtime.getManifest().version);
+	
 	$('#radToast').buttonset();
 	$('#radShowCount').buttonset();
 	$('#sldFrequency').slider({
