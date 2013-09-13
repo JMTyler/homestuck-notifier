@@ -11,12 +11,12 @@ window.jmtyler.version = (function()
 			to:   '1.1.0',
 			with: function() {
 				if (typeof localStorage['check_frequency'] != 'undefined') {
-					jmtyler.settings.set('check_frequency', localStorage['check_frequency']);
+					jmtyler.settings.set('check_frequency', JSON.parse(localStorage['check_frequency']));
 					delete localStorage['check_frequency'];
 				}
 				
 				if (typeof localStorage['notifications_on'] != 'undefined') {
-					jmtyler.settings.set('notifications_on', localStorage['notifications_on']);
+					jmtyler.settings.set('notifications_on', JSON.parse(localStorage['notifications_on']));
 					delete localStorage['notifications_on'];
 				}
 				
