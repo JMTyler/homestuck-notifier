@@ -276,7 +276,7 @@
 			doShowPageCount = jmtyler.settings.get('show_page_count');
 		
 		// After the update, make sure the browser action still looks the same as it did before.
-		if (lastPageRead == latestUpdate) {
+		if (lastPageRead == latestUpdate || latestUpdate === false) {
 			chrome.browserAction.setIcon({path: icons.idle});
 			chrome.browserAction.setBadgeText({text: ''});
 		} else {
