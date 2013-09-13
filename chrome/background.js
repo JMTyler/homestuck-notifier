@@ -271,6 +271,27 @@
 			jmtyler.version.update(details.previousVersion);
 		}
 		
+		var lastPageRead    = jmtyler.memory.get('last_page_read'),
+			latestUpdate    = jmtyler.memory.get('latest_update'),
+			doShowPageCount = jmtyler.settings.get('show_page_count');
+		
+		// After the update, make sure the browser action still looks the same as it did before.
+		if (lastPageRead == latestUpdate) {
+			chrome.browserAction.setIcon({path: icons.idle});
+			chrome.browserAction.setBadgeText({text: ''});
+		} else {
+			chrome.browserAction.setIcon({path: icons.updates});
+			if (doShowPageCount) {
+				// TODO: Should probably start storing the unread pages count so we don't have to do this.
+				var lastPageReadId = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
+				var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
+				var unreadPageCount = latestUpdatePageId - lastPageReadId;
+				
+				chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
+				chrome.browserAction.setBadgeText({text: unreadPageCount + (unreadPageCount == 40 ? '+' : '')});
+			}
+		}
+		
 		// Now that we've finished any migrations, we can run the main process.
 		_main();
 	});
