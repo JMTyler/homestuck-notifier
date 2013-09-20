@@ -98,7 +98,11 @@
 		pingRequest.onload = function()
 		{
 			// In case the last ping resulted in an error, make sure we set the icon back to normal.
-			chrome.browserAction.setIcon({path: (lastPageRead == latestUpdate) ? icons.idle : icons.updates});
+			if (lastPageRead == latestUpdate || latestUpdate == false) {
+				chrome.browserAction.setIcon({path: icons.idle});
+			} else {
+				chrome.browserAction.setIcon({path: icons.updates});
+			}
 			
 			var myLastModified    = jmtyler.memory.get('http_last_modified'),
 				theirLastModified = pingRequest.getResponseHeader('Last-Modified');
