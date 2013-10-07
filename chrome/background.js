@@ -14,8 +14,7 @@
 */
 
 (function() {
-	var isDebugMode = false,
-		checkInterval = null,
+	var checkInterval = null,
 		intervalLength = null;
 	
 	var icons = {
@@ -26,13 +25,35 @@
 	
 	var _main = function()
 	{
+		jmtyler.log('executing _main()');
+		
 		intervalLength = jmtyler.settings.map('check_frequency').seconds * 1000;
 		
-		chrome.browserAction.setIcon({path: icons.idle});
+		var lastPageRead    = jmtyler.memory.get('last_page_read'),
+			latestUpdate    = jmtyler.memory.get('latest_update'),
+			doShowPageCount = jmtyler.settings.get('show_page_count');
+		
+		// After startup, make sure the browser action still looks as it should with context.
+		if (lastPageRead == latestUpdate || latestUpdate === false) {
+			chrome.browserAction.setIcon({path: icons.idle});
+			chrome.browserAction.setBadgeText({text: ''});
+		} else {
+			chrome.browserAction.setIcon({path: icons.updates});
+			if (doShowPageCount) {
+				// TODO: Should probably start storing the unread pages count so we don't have to do this.
+				var lastPageReadId = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
+				var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
+				var unreadPageCount = latestUpdatePageId - lastPageReadId;
+				
+				chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
+				chrome.browserAction.setBadgeText({text: unreadPageCount + (unreadPageCount == 40 ? '+' : '')});
+			}
+		}
+		
 		chrome.browserAction.onClicked.addListener(_gotoMspa);
 		
 		// Make some key functions globally accessible for debug mode.
-		if (isDebugMode) {
+		if (jmtyler.settings.get('is_debug_mode')) {
 			window.gotoMspa = function(){ _gotoMspa(); };
 			window.checkForUpdates = function(){ _checkForUpdates(); };
 			window.playSound = function(){ _playSound(); };
@@ -52,16 +73,22 @@
 	 */
 	var _gotoMspa = function()
 	{
-		var latestUpdate = jmtyler.memory.get('latest_update'),
-			lastPageRead = jmtyler.memory.get('last_page_read') || "http://mspaintadventures.com";
-		
-		chrome.browserAction.setIcon({path: icons.idle});
-		chrome.browserAction.setBadgeText({text: ''});
-		chrome.tabs.create({url: lastPageRead});
-		
-		if (latestUpdate) {
-			jmtyler.memory.set('last_page_read', latestUpdate);
-			jmtyler.memory.clear('latest_update');
+		try {
+			var latestUpdate = jmtyler.memory.get('latest_update'),
+				lastPageRead = jmtyler.memory.get('last_page_read') || "http://mspaintadventures.com";
+			
+			jmtyler.log('executing _gotoMspa()', latestUpdate, lastPageRead);
+			
+			chrome.browserAction.setIcon({path: icons.idle});
+			chrome.browserAction.setBadgeText({text: ''});
+			chrome.tabs.create({url: lastPageRead});
+			
+			if (latestUpdate) {
+				jmtyler.memory.set('last_page_read', latestUpdate);
+				jmtyler.memory.clear('latest_update');
+			}
+		} catch (e) {
+			jmtyler.log('failed to open new tab for MSPA', e);
 		}
 		
 		return;
@@ -74,12 +101,15 @@
 	 */
 	var _checkForUpdates = function()
 	{
+		jmtyler.log('executing _checkForUpdates()');
+		
 		var areNotificationsOn = jmtyler.settings.get('notifications_on'),
 			doShowPageCount    = jmtyler.settings.get('show_page_count'),
 			newIntervalLength  = jmtyler.settings.map('check_frequency').seconds * 1000;
 		
 		// Interval length setting has been changed, so set a new interval.
-		if (newIntervalLength != intervalLength && !isDebugMode) {
+		// TODO: Changes to interval length should take effect immediately.
+		if (newIntervalLength != intervalLength && !jmtyler.settings.get('is_debug_mode')) {
 			intervalLength = newIntervalLength;
 			if (checkInterval != null) {
 				clearInterval(checkInterval);
@@ -107,6 +137,8 @@
 			var myLastModified    = jmtyler.memory.get('http_last_modified'),
 				theirLastModified = pingRequest.getResponseHeader('Last-Modified');
 			
+			jmtyler.log('completed ping request', lastPageRead, latestUpdate, myLastModified, theirLastModified);
+			
 			if (myLastModified == theirLastModified) {
 				// No updates.
 				return;
@@ -117,6 +149,8 @@
 			var contentRequest = new XMLHttpRequest();
 			contentRequest.onload = function()
 			{
+				jmtyler.log('completed content request', contentRequest.responseXML);
+				
 				var xml = contentRequest.responseXML;
 				if (!xml) {
 					console.log('invalid rss feed received.');
@@ -202,6 +236,8 @@
 				return;
 			};
 			
+			jmtyler.log('starting content request');
+			
 			contentRequest.open('GET', feedUri, true);
 			contentRequest.send(null);
 			
@@ -214,6 +250,8 @@
 			chrome.browserAction.setIcon({path: icons.error});
 			return;
 		};
+		
+		jmtyler.log('starting ping request');
 		
 		pingRequest.open('HEAD', feedUri, true);
 		pingRequest.send(null);
@@ -253,55 +291,49 @@
 		chrome.browserAction.setBadgeText({text: ''});
 	};
 	
+	var _currentVersion = chrome.runtime.getManifest().version;
+	
+	// TODO: Perhaps I shouldn't be doing this.  Might not work as I expect.
 	chrome.runtime.onUpdateAvailable.addListener(function() {
+		jmtyler.log('executing onUpdateAvailable()', _currentVersion, arguments);
 		chrome.runtime.reload();
 	});
 	
-	var _currentVersion = chrome.runtime.getManifest().version;
 	chrome.runtime.onInstalled.addListener(function(details) {
+		jmtyler.log('executing onInstalled()', _currentVersion, details);
 		if (_currentVersion == details.previousVersion) {
+			jmtyler.log('  new version is same as old version... aborting');
 			return;
 		}
 		
 		// If the latest version has already been fully installed, don't do anything. (Not sure how we got here, though.)
 		if (jmtyler.version.isInstalled(_currentVersion)) {
+			jmtyler.log('  new version has already been installed... aborting');
 			return;
 		}
 		
 		// Install the latest version, performing any necessary migrations.
 		if (details.reason == "install") {
+			jmtyler.log('  extension is newly installed');
 			jmtyler.version.install(_currentVersion);
 		} else if (details.reason == "update") {
-			jmtyler.version.update(details.previousVersion);
-		}
-		
-		var lastPageRead    = jmtyler.memory.get('last_page_read'),
-			latestUpdate    = jmtyler.memory.get('latest_update'),
-			doShowPageCount = jmtyler.settings.get('show_page_count');
-		
-		// After the update, make sure the browser action still looks the same as it did before.
-		if (lastPageRead == latestUpdate || latestUpdate === false) {
-			chrome.browserAction.setIcon({path: icons.idle});
-			chrome.browserAction.setBadgeText({text: ''});
+			jmtyler.log('  extension is being updated');
+			jmtyler.version.update(details.previousVersion, _currentVersion);
 		} else {
-			chrome.browserAction.setIcon({path: icons.updates});
-			if (doShowPageCount) {
-				// TODO: Should probably start storing the unread pages count so we don't have to do this.
-				var lastPageReadId = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
-				var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
-				var unreadPageCount = latestUpdatePageId - lastPageReadId;
-				
-				chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
-				chrome.browserAction.setBadgeText({text: unreadPageCount + (unreadPageCount == 40 ? '+' : '')});
-			}
+			jmtyler.log('  extension is in some unhandled state... [' + details.reason + ']');
 		}
+		
+		jmtyler.log('  done migration, ready to run _main()');
 		
 		// Now that we've finished any migrations, we can run the main process.
 		_main();
 	});
 	
+	jmtyler.log('checking if current version has been installed...' + (jmtyler.version.isInstalled(_currentVersion) ? 'yes' : 'no'));
+	
 	// Only run the main process immediately if the latest version has already been fully installed.
 	if (jmtyler.version.isInstalled(_currentVersion)) {
+		jmtyler.log('current version is installed, running _main() immediately');
 		_main();
 	}
 })();

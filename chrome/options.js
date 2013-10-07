@@ -75,6 +75,9 @@ $(function() {
 		
 		toastSoundUri = jmtyler.settings.get('toast_sound_uri');
 		$('#audToastSound').prop('src', toastSoundUri);
+		
+		var isDebugMode = jmtyler.settings.get('is_debug_mode');
+		$('#hdnDebugMode').val(isDebugMode ? 1 : 0);
 	};
 	
 	// TODO: eventually implement live edit
@@ -82,13 +85,15 @@ $(function() {
 	$('#btnSave').on('click', function() {
 		var areNotificationsOn = $('#radToast :radio:checked').val() == 'on',
 			doShowPageCount    = $('#radShowCount :radio:checked').val() == 'on',
-			checkFrequency     = $('#sldFrequency').slider('value');
+			checkFrequency     = $('#sldFrequency').slider('value'),
+			isDebugMode        = $('#hdnDebugMode').val() == 1;
 		
 		jmtyler.settings.set('notifications_on', areNotificationsOn)
 			.set('show_page_count', doShowPageCount)
 			.set('check_frequency', checkFrequency)
 			.set('toast_icon_uri', toastIconUri)
-			.set('toast_sound_uri', toastSoundUri);
+			.set('toast_sound_uri', toastSoundUri)
+			.set('is_debug_mode', isDebugMode);
 	});
 	
 	$('#btnReset').button();

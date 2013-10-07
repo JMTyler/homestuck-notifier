@@ -2,8 +2,8 @@
  * TODO: Use chrome.storage.local/sync.  Further encapsulate details such as defaults and maps.
  */
 
-window.jmtyler = window.jmtyler || {};
-window.jmtyler.settings = (function()
+var jmtyler = jmtyler || {};
+jmtyler.settings = (function()
 {
 	var _settings = null;
 	
@@ -11,7 +11,8 @@ window.jmtyler.settings = (function()
 		'notifications_on' : true,
 		'show_page_count'  : true,
 		'check_frequency'  : 3,
-		'toast_icon_uri'   : '48.png'
+		'toast_icon_uri'   : '48.png',
+		'is_debug_mode'    : false
 	};
 	
 	var _maps = {
@@ -142,3 +143,11 @@ window.jmtyler.settings = (function()
 		}
 	};
 })();
+
+// TODO: Move this to a better spot, but it still must realistically depend on jmtyler.settings
+jmtyler.log = function()
+{
+	if (jmtyler.settings.get('is_debug_mode')) {
+		console.log.apply(console, arguments);
+	}
+};

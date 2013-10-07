@@ -1,8 +1,8 @@
 
 // TODO: Really have to go through this and comment... it's confusing as heck.  But it works!
 
-window.jmtyler = window.jmtyler || {};
-window.jmtyler.version = (function()
+var jmtyler = jmtyler || {};
+jmtyler.version = (function()
 {
 	var _init = function()
 	{
@@ -40,8 +40,12 @@ window.jmtyler.version = (function()
 	{
 		_updates[details.to] = {
 			run: function() {
+				jmtyler.log('      updating to version [' + details.to + ']', localStorage);
+				
 				details.with();
 				jmtyler.memory.set('version', details.to);
+				
+				jmtyler.log('      finished updating', localStorage);
 			},
 			next: function() {
 				return false;
@@ -51,6 +55,7 @@ window.jmtyler.version = (function()
 		if (typeof _updates[details.from] == 'undefined') {
 			_updates[details.from] = {
 				run: function() {
+					jmtyler.log('      no changes for version [' + details.from + ']');
 					jmtyler.memory.set('version', details.from);
 				}
 			};
@@ -74,14 +79,22 @@ window.jmtyler.version = (function()
 	return {
 		install: function(version)
 		{
+			jmtyler.log('fresh install', version);
+			jmtyler.memory.set('version', version);
 		},
-		update: function(fromVersion)
+		update: function(fromVersion, toVersion)
 		{
-			var update = _getUpdate(fromVersion);
+			jmtyler.log('    updating extension...', fromVersion, toVersion);
 			
-			while (update = update.next()) {
-				update.run();
+			var update = _getUpdate(fromVersion);
+			if (update) {
+				while (update = update.next()) {
+					update.run();
+				}
 			}
+			jmtyler.memory.set('version', toVersion);
+			
+			jmtyler.log('    finished updating extension');
 		},
 		isInstalled: function(version)
 		{

@@ -1,5 +1,6 @@
-window.jmtyler = window.jmtyler || {};
-window.jmtyler.memory = (function()
+
+var jmtyler = jmtyler || {};
+jmtyler.memory = (function()
 {
 	var _memory = null;
 	
