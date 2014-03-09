@@ -75,12 +75,34 @@
 		chrome.contextMenus.onClicked.addListener(function(info, tab) {
 			var pageUrl = info.pageUrl;
 			// Ensure the URL uses "www." so it plays nice with the URLs from the RSS feed.
-			pageUrl = pageUrl.replace(/(http:\/\/)(www\.)?(mspaintadventures.com)/, "$1www.$3");
+			pageUrl = pageUrl.replace(/(http:\/\/)(www\.)?(mspaintadventures.com\/)/, "$1www.$3");
 			jmtyler.memory.set('last_page_read', pageUrl);
 			chrome.browserAction.setTitle({title: pageUrl});
+			// Considered forcing a recheck after setting your new page, but decided there's no point.
+			// Leaving this here in case I change my mind, but I'll probably remove it after a few commits.
 			//jmtyler.memory.clear('http_last_modified');
 			//jmtyler.memory.clear('latest_update');
 			//_checkForUpdates();
+		});
+		
+		chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
+			var pageUrl = changeInfo.url;
+			// Ensure the URL uses "www." so it plays nice with the URLs from the RSS feed.
+			pageUrl = pageUrl.replace(/(http:\/\/)(www\.)?(mspaintadventures.com\/)/, "$1www.$3");
+			if (pageUrl.indexOf("http://www.mspaintadventures.com/") != 0) {
+				// This is not an MSPA page, so we don't care about it.
+				return;
+			}
+			
+			// Strip the page ID's off this page's URL and our saved last-read page URL, then compare them.
+			var lastPageRead = jmtyler.memory.get('last_page_read');
+			var thisPageId = parseInt(pageUrl.substr(pageUrl.length - 6), 10);
+			var lastPageReadId = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
+			if (thisPageId > lastPageReadId) {
+				// This page is LATER than the last page we've read, so this is the new one!
+				jmtyler.memory.set('last_page_read', pageUrl);
+				chrome.browserAction.setTitle({title: pageUrl});
+			}
 		});
 		
 		// Make some key functions globally accessible for debug mode.
@@ -115,8 +137,6 @@
 			chrome.tabs.create({url: lastPageRead});
 			
 			if (latestUpdate) {
-				jmtyler.memory.set('last_page_read', latestUpdate);
-				chrome.browserAction.setTitle({title: latestUpdate});
 				jmtyler.memory.clear('latest_update');
 			}
 		} catch (e) {
