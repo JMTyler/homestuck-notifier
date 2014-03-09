@@ -33,7 +33,13 @@
 			latestUpdate    = jmtyler.memory.get('latest_update'),
 			doShowPageCount = jmtyler.settings.get('show_page_count');
 		
+		if (lastPageRead == null) {
+			lastPageRead = "http://www.mspaintadventures.com/?s=6&p=001901";  // Default to the first page of Homestuck
+			jmtyler.memory.set('last_page_read', lastPageRead);
+		}
+		
 		// After startup, make sure the browser action still looks as it should with context.
+		chrome.browserAction.setTitle({title: lastPageRead});
 		if (lastPageRead == latestUpdate || latestUpdate === false) {
 			chrome.browserAction.setIcon({path: icons.idle});
 			chrome.browserAction.setBadgeText({text: ''});
@@ -62,6 +68,21 @@
 			}
 		});
 		
+		chrome.contextMenus.create({
+			title: "Mark as my Last Read page",
+			documentUrlPatterns: ["http://*.mspaintadventures.com/?s=6&p=*"]
+		});
+		chrome.contextMenus.onClicked.addListener(function(info, tab) {
+			var pageUrl = info.pageUrl;
+			// Ensure the URL uses "www." so it plays nice with the URLs from the RSS feed.
+			pageUrl = pageUrl.replace(/(http:\/\/)(www\.)?(mspaintadventures.com)/, "$1www.$3");
+			jmtyler.memory.set('last_page_read', pageUrl);
+			chrome.browserAction.setTitle({title: pageUrl});
+			//jmtyler.memory.clear('http_last_modified');
+			//jmtyler.memory.clear('latest_update');
+			//_checkForUpdates();
+		});
+		
 		// Make some key functions globally accessible for debug mode.
 		if (jmtyler.settings.get('is_debug_mode')) {
 			window.gotoMspa = function(){ _gotoMspa(); };
@@ -85,7 +106,7 @@
 	{
 		try {
 			var latestUpdate = jmtyler.memory.get('latest_update'),
-				lastPageRead = jmtyler.memory.get('last_page_read') || "http://mspaintadventures.com";
+				lastPageRead = jmtyler.memory.get('last_page_read') || "http://www.mspaintadventures.com";
 			
 			jmtyler.log('executing _gotoMspa()', latestUpdate, lastPageRead);
 			
@@ -95,6 +116,7 @@
 			
 			if (latestUpdate) {
 				jmtyler.memory.set('last_page_read', latestUpdate);
+				chrome.browserAction.setTitle({title: latestUpdate});
 				jmtyler.memory.clear('latest_update');
 			}
 		} catch (e) {
@@ -129,11 +151,6 @@
 		
 		var lastPageRead = jmtyler.memory.get('last_page_read'),
 			latestUpdate = jmtyler.memory.get('latest_update');
-		
-		if (lastPageRead == null) {
-			lastPageRead = "http://www.mspaintadventures.com/?s=6&p=001901";  // Default to the first page of Homestuck
-			jmtyler.memory.set('last_page_read', lastPageRead);
-		}
 		
 		// TODO: All the following XHR crap is incredibly grotesque... put some time into encapsulating & simplifying it.
 		

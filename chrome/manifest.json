@@ -4,6 +4,7 @@
 	"description": "MSPA Notifier keeps track of your spot on MSPaintAdventures.com and notifies you of new updates.",
 	"version": "1.1.2",
 	"icons": {
+		"16": "mspa_face-16.png",
 		"48": "48.png"
 	},
 	"browser_action": {
@@ -17,7 +18,8 @@
 	"permissions": [
 		"tabs",
 		"notifications",
-		"http://mspaintadventures.com/*"
+		"contextMenus",
+		"*://*.mspaintadventures.com/*"
 	],
 	"web_accessible_resources": ["48.png"],
 	"manifest_version": 2
