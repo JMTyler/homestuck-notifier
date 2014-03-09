@@ -130,6 +130,11 @@
 		var lastPageRead = jmtyler.memory.get('last_page_read'),
 			latestUpdate = jmtyler.memory.get('latest_update');
 		
+		if (lastPageRead == null) {
+			lastPageRead = "http://www.mspaintadventures.com/?s=6&p=001901";  // Default to the first page of Homestuck
+			jmtyler.memory.set('last_page_read', lastPageRead);
+		}
+		
 		// TODO: All the following XHR crap is incredibly grotesque... put some time into encapsulating & simplifying it.
 		
 		var feedUri = "http://mspaintadventures.com/rss/rss.xml",
@@ -140,6 +145,7 @@
 			// In case the last ping resulted in an error, make sure we set the icon back to normal.
 			if (lastPageRead == latestUpdate || latestUpdate == false) {
 				chrome.browserAction.setIcon({path: icons.idle});
+				chrome.browserAction.setBadgeText({text: ''});
 			} else {
 				chrome.browserAction.setIcon({path: icons.updates});
 			}
@@ -180,11 +186,6 @@
 						guid = guid.textContent;
 					}
 					
-					if (lastPageRead == null) {
-						lastPageRead = guid;
-						jmtyler.memory.set('last_page_read', guid);
-					}
-					
 					if (guid == lastPageRead) {
 						break;
 					}
@@ -198,6 +199,7 @@
 				
 				if (unreadPagesCount < 1) {
 					chrome.browserAction.setIcon({path: icons.idle});
+					chrome.browserAction.setBadgeText({text: ''});
 					return;
 				}
 				
