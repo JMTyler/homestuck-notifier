@@ -17,6 +17,11 @@ $(function() {
 		}
 	});
 	
+	$('#btnForceCheck').button();
+	$('#btnForceCheck').on('click', function() {
+		chrome.extension.sendRequest({method: 'forceCheck'});
+	});
+	
 	$('#fileToastIcon').on('change', function(event) {
 		var file = event.target.files[0];  // TODO: can this array be empty?
 		if (!file.type.match('image.*')) {

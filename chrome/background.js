@@ -52,6 +52,16 @@
 		
 		chrome.browserAction.onClicked.addListener(_gotoMspa);
 		
+		chrome.extension.onRequest.addListener(function(request, sender, sendResponse) {
+			switch (request.method) {
+				case 'forceCheck':
+					jmtyler.memory.clear('http_last_modified');
+					jmtyler.memory.clear('latest_update');
+					_checkForUpdates();
+					break;
+			}
+		});
+		
 		// Make some key functions globally accessible for debug mode.
 		if (jmtyler.settings.get('is_debug_mode')) {
 			window.gotoMspa = function(){ _gotoMspa(); };
