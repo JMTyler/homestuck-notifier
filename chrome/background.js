@@ -71,7 +71,7 @@
 		
 		chrome.contextMenus.create({
 			title: "Mark as my Last Read page",
-			documentUrlPatterns: ["http://*.mspaintadventures.com/?s=6&p=*"],
+			documentUrlPatterns: ["http://*.mspaintadventures.com/*?s=6&p=*"],
 			contexts: ['all']
 		});
 		chrome.contextMenus.onClicked.addListener(function(info, tab) {
@@ -88,6 +88,10 @@
 		});
 		
 		chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
+			if (typeof changeInfo.url == "undefined") {
+				return;
+			}
+			
 			var pageUrl = changeInfo.url;
 			// Ensure the URL uses "www." so it plays nice with the URLs from the RSS feed.
 			pageUrl = pageUrl.replace(/(http:\/\/)(www\.)?(mspaintadventures.com\/)/, "$1www.$3");
@@ -272,15 +276,17 @@
 						toastTitle   = isGigapauseOver ? "GIGAPAUSE OVER!!!!!  READ NOW!!!" : "New MSPA Update!",
 						toastMessage = "Click here to start reading!" + (doShowPageCount ? ("\n" + unreadPagesText + " pages") : "");
 					
-					var notification = window.webkitNotifications.createNotification(toastIcon, toastTitle, toastMessage);
+					_playSound();
+					
+					var notification = new Notification(toastTitle, {
+						icon: toastIcon,
+						body: toastMessage
+					});
 					notification.onclick = function()
 					{
 						this.close();
 						_gotoMspa();
 					};
-					
-					_playSound();
-					notification.show();
 					
 					setTimeout(function() {
 						notification.close();
