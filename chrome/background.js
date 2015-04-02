@@ -350,12 +350,6 @@
 	
 	var _currentVersion = chrome.runtime.getManifest().version;
 	
-	// TODO: Perhaps I shouldn't be doing this.  Might not work as I expect.
-	chrome.runtime.onUpdateAvailable.addListener(function() {
-		jmtyler.log('executing onUpdateAvailable()', _currentVersion, arguments);
-		chrome.runtime.reload();
-	});
-	
 	chrome.runtime.onInstalled.addListener(function(details) {
 		jmtyler.log('executing onInstalled()', _currentVersion, details);
 		if (_currentVersion == details.previousVersion) {
