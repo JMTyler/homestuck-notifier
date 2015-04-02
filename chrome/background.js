@@ -19,7 +19,6 @@
 	
 	var icons = {
 		idle: 'mspa_face.gif',
-		error: 'mspa_reader.gif',
 		updates: 'whatpumpkin.gif'
 	};
 	
@@ -212,7 +211,6 @@
 				var xml = contentRequest.responseXML;
 				if (!xml) {
 					console.log('invalid rss feed received.');
-					chrome.browserAction.setIcon({path: icons.error});
 					return;
 				}
 				
@@ -289,7 +287,6 @@
 			{
 				// TODO: Seriously have to improve my error reporting.
 				console.log('something went wrong, brotha.');
-				chrome.browserAction.setIcon({path: icons.error});
 				return;
 			};
 			
@@ -304,7 +301,6 @@
 		pingRequest.onerror = function()
 		{
 			console.log('something went wrong, brotha.');
-			chrome.browserAction.setIcon({path: icons.error});
 			return;
 		};
 		
