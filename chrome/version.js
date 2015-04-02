@@ -32,6 +32,14 @@ jmtyler.version = (function()
 			}
 		});
 		
+		_addUpdate({
+			from: '1.2.1',
+			to:   '1.3.0',
+			with: function() {
+				jmtyler.memory.clear('is_gigapause_over');
+			}
+		});
+		
 		return;
 	};
 	

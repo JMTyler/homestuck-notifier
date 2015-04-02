@@ -20,8 +20,7 @@
 	var icons = {
 		idle: 'mspa_face.gif',
 		error: 'mspa_reader.gif',
-		updates: 'whatpumpkin.gif',
-		gigapause: 'gigapause-19.png'
+		updates: 'whatpumpkin.gif'
 	};
 	
 	var _main = function()
@@ -254,17 +253,9 @@
 				var unreadPagesText = unreadPagesCount + (unreadPagesCount == 40 ? '+' : '');
 				var latestUpdatePageId = parseInt(newLatestUpdate.substr(newLatestUpdate.length - 6), 10);
 				
-				var isGigapauseAlreadyOver = jmtyler.memory.get('is_gigapause_over');
-				var isGigapauseOver = latestUpdatePageId > 8752 && !isGigapauseAlreadyOver;
-				
-				if (isGigapauseOver) {
-					jmtyler.memory.set('is_gigapause_over', true);
-				}
-				
 				// Update button for new updates.
 				jmtyler.memory.set('latest_update', newLatestUpdate);
-				var newIcon = isGigapauseOver ? icons.gigapause : icons.updates;
-				chrome.browserAction.setIcon({path: newIcon});
+				chrome.browserAction.setIcon({path: icons.updates});
 				if (doShowPageCount) {
 					chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
 					chrome.browserAction.setBadgeText({text: unreadPagesText});
@@ -272,8 +263,8 @@
 				
 				if (areNotificationsOn) {
 					// Show notification for new updates.
-					var toastIcon    = isGigapauseOver ? 'gigapause-48.png' : jmtyler.settings.get('toast_icon_uri'),
-						toastTitle   = isGigapauseOver ? "GIGAPAUSE OVER!!!!!  READ NOW!!!" : "New MSPA Update!",
+					var toastIcon    = jmtyler.settings.get('toast_icon_uri'),
+						toastTitle   = "New MSPA Update!",
 						toastMessage = "Click here to start reading!" + (doShowPageCount ? ("\n" + unreadPagesText + " pages") : "");
 					
 					_playSound();
