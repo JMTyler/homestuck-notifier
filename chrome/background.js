@@ -70,7 +70,7 @@
 		chrome.contextMenus.create({
 			title: "Mark as my Last Read page",
 			documentUrlPatterns: ["http://*.mspaintadventures.com/*?s=6&p=*"],
-			contexts: ['all']
+			contexts: ['page', 'frame', 'link', 'image', 'video', 'audio']  // Pretty much as long as it is on the MSPA website.
 		});
 		chrome.contextMenus.onClicked.addListener(function(info, tab) {
 			var pageUrl = info.pageUrl;
