@@ -39,20 +39,17 @@
 		
 		// After startup, make sure the browser action still looks as it should with context.
 		chrome.browserAction.setTitle({title: lastPageRead});
-		if (lastPageRead == latestUpdate || latestUpdate === false) {
-			chrome.browserAction.setIcon({path: icons.idle});
+		chrome.browserAction.setIcon({path: icons.idle});
+		if (lastPageRead == latestUpdate) {
 			chrome.browserAction.setBadgeText({text: ''});
-		} else {
-			chrome.browserAction.setIcon({path: icons.updates});
-			if (doShowPageCount) {
-				// TODO: Should probably start storing the unread pages count so we don't have to do this.
-				var lastPageReadId = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
-				var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
-				var unreadPageCount = latestUpdatePageId - lastPageReadId;
-				
-				chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
-				chrome.browserAction.setBadgeText({text: unreadPageCount + (unreadPageCount == 40 ? '+' : '')});
-			}
+		} else if (latestUpdate !== false && doShowPageCount) {
+			// TODO: Should probably start storing the unread pages count so we don't have to do this.
+			var lastPageReadId = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
+			var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
+			var unreadPageCount = latestUpdatePageId - lastPageReadId;
+			
+			chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
+			chrome.browserAction.setBadgeText({text: unreadPageCount.toString()});
 		}
 		
 		chrome.browserAction.onClicked.addListener(_gotoMspa);
@@ -75,9 +72,19 @@
 		chrome.contextMenus.onClicked.addListener(function(info, tab) {
 			var pageUrl = info.pageUrl;
 			// Ensure the URL uses "www." so it plays nice with the URLs from the RSS feed.
-			pageUrl = pageUrl.replace(/(http:\/\/)(www\.)?(mspaintadventures.com\/)/, "$1www.$3");
+			pageUrl = pageUrl.replace(/(https?:\/\/)(www\.)?(mspaintadventures.com\/)/, "http://www.$3");
 			jmtyler.memory.set('last_page_read', pageUrl);
 			chrome.browserAction.setTitle({title: pageUrl});
+			
+			var latestUpdate = jmtyler.memory.get('latest_update');
+			if (latestUpdate !== false && doShowPageCount) {
+				var lastPageReadId = parseInt(pageUrl.substr(pageUrl.length - 6), 10);
+				var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
+				var unreadPageCount = latestUpdatePageId - lastPageReadId;
+				
+				chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
+				chrome.browserAction.setBadgeText({text: unreadPageCount.toString()});
+			}
 			// Considered forcing a recheck after setting your new page, but decided there's no point.
 			// Leaving this here in case I change my mind, but I'll probably remove it after a few commits.
 			//jmtyler.memory.clear('http_last_modified');
@@ -92,7 +99,7 @@
 			
 			var pageUrl = changeInfo.url;
 			// Ensure the URL uses "www." so it plays nice with the URLs from the RSS feed.
-			pageUrl = pageUrl.replace(/(http:\/\/)(www\.)?(mspaintadventures.com\/)/, "$1www.$3");
+			pageUrl = pageUrl.replace(/(https?:\/\/)(www\.)?(mspaintadventures.com\/)/, "http://www.$3");
 			if (pageUrl.indexOf("http://www.mspaintadventures.com/") != 0) {
 				// This is not an MSPA page, so we don't care about it.
 				return;
@@ -106,6 +113,15 @@
 				// This page is LATER than the last page we've read, so this is the new one!
 				jmtyler.memory.set('last_page_read', pageUrl);
 				chrome.browserAction.setTitle({title: pageUrl});
+				chrome.browserAction.setIcon({path: icons.idle});
+				
+				var latestUpdate = jmtyler.memory.get('latest_update');
+				if (latestUpdate !== false && doShowPageCount) {
+					var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
+					var unreadPageCount = latestUpdatePageId - thisPageId;
+					chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
+					chrome.browserAction.setBadgeText({text: unreadPageCount.toString()});
+				}
 			}
 		});
 		
@@ -136,13 +152,7 @@
 			
 			jmtyler.log('executing _gotoMspa()', latestUpdate, lastPageRead);
 			
-			chrome.browserAction.setIcon({path: icons.idle});
-			chrome.browserAction.setBadgeText({text: ''});
 			chrome.tabs.create({url: lastPageRead});
-			
-			if (latestUpdate) {
-				jmtyler.memory.clear('latest_update');
-			}
 		} catch (e) {
 			jmtyler.log('failed to open new tab for MSPA', e);
 		}
@@ -183,14 +193,6 @@
 		
 		pingRequest.onload = function()
 		{
-			// In case the last ping resulted in an error, make sure we set the icon back to normal.
-			if (lastPageRead == latestUpdate || latestUpdate == false) {
-				chrome.browserAction.setIcon({path: icons.idle});
-				chrome.browserAction.setBadgeText({text: ''});
-			} else {
-				chrome.browserAction.setIcon({path: icons.updates});
-			}
-			
 			var myLastModified    = jmtyler.memory.get('http_last_modified'),
 				theirLastModified = pingRequest.getResponseHeader('Last-Modified');
 			
@@ -216,30 +218,14 @@
 				
 				var pages = xml.getElementsByTagName('item');
 				var count = Math.min(pages.length, 40);
-				var item, guid, newLatestUpdate = null;
 				var unreadPagesCount = 0;
-				for (var i = 0; i < count; i += 1) {
-					item = pages.item(i);
-					
-					guid = item.getElementsByTagName('guid')[0];
-					if (guid) {
-						guid = guid.textContent;
-					}
-					
-					if (guid == lastPageRead) {
-						break;
-					}
-					
-					if (newLatestUpdate == null) {
-						newLatestUpdate = guid;
-					}
-					
-					unreadPagesCount++;
-				}
 				
-				if (unreadPagesCount < 1) {
-					chrome.browserAction.setIcon({path: icons.idle});
-					chrome.browserAction.setBadgeText({text: ''});
+				var item = pages.item(0);
+				var guid = item.getElementsByTagName('guid')[0];
+				var newLatestUpdate = guid ? guid.textContent : null;
+				
+				if (newLatestUpdate === null) {
+					console.log('could not find guid on first rss item');
 					return;
 				}
 				
@@ -248,22 +234,32 @@
 					return;
 				}
 				
-				var unreadPagesText = unreadPagesCount + (unreadPagesCount == 40 ? '+' : '');
+				var lastPageReadId = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
 				var latestUpdatePageId = parseInt(newLatestUpdate.substr(newLatestUpdate.length - 6), 10);
+				var unreadPagesCount = latestUpdatePageId - lastPageReadId;
+				if (unreadPagesCount < 1) {
+					chrome.browserAction.setIcon({path: icons.idle});
+					chrome.browserAction.setBadgeText({text: ''});
+					return;
+				}
+				
+				var unreadPagesText = unreadPagesCount.toString();
 				
 				// Update button for new updates.
-				jmtyler.memory.set('latest_update', newLatestUpdate);
-				chrome.browserAction.setIcon({path: icons.updates});
+				if (latestUpdate !== false) {
+					chrome.browserAction.setIcon({path: icons.updates});
+				}
 				if (doShowPageCount) {
 					chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
 					chrome.browserAction.setBadgeText({text: unreadPagesText});
 				}
+				jmtyler.memory.set('latest_update', newLatestUpdate);
 				
 				if (areNotificationsOn) {
 					// Show notification for new updates.
 					var toastIcon    = jmtyler.settings.get('toast_icon_uri'),
 						toastTitle   = "New MSPA Update!",
-						toastMessage = "Click here to start reading!" + (doShowPageCount ? ("\n" + unreadPagesText + " pages") : "");
+						toastMessage = "Click here to start reading!" + (doShowPageCount ? ("\n" + unreadPagesText + " new pages") : "");
 					
 					_playSound();
 					
