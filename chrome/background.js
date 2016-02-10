@@ -363,7 +363,7 @@
 		if (details.reason == "install") {
 			jmtyler.log('  extension is newly installed');
 			jmtyler.version.install(_currentVersion);
-		} else if (details.reason == "update") {
+		} else if (details.reason == "update" || details.reason == "chrome_update") {
 			jmtyler.log('  extension is being updated');
 			jmtyler.version.update(details.previousVersion, _currentVersion);
 		} else {
