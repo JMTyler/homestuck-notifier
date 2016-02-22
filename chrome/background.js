@@ -99,9 +99,11 @@
 			
 			var pageUrl = changeInfo.url;
 			// Ensure the URL uses "www." so it plays nice with the URLs from the RSS feed.
-			pageUrl = pageUrl.replace(/(https?:\/\/)(www\.)?(mspaintadventures.com\/)/, "http://www.$3");
-			if (pageUrl.indexOf("http://www.mspaintadventures.com/") != 0) {
-				// This is not an MSPA page, so we don't care about it.
+			pageUrl = pageUrl.replace(/(https?:\/\/)(www\.)?(mspaintadventures.com)/, "http://www.$3");
+			
+			// This listener isn't triggered AFTER a regex filter like the context menu, so must do it ourselves.
+			if (!/^http:\/\/www\.mspaintadventures\.com\/?.*\?s=6&p=[0-9]+/.test(pageUrl)) {
+				// This is not an MSPA comic page, so we don't care about it.
 				return;
 			}
 			
