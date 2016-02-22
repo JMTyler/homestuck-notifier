@@ -1,7 +1,7 @@
 {
 	"name": "MSPA Notifier",
 	"description": "MSPA Notifier keeps track of your spot on MSPaintAdventures.com and notifies you of new updates.",
-	"version": "1.4.0",
+	"version": "1.4.1",
 	"icons": {
 		"16": "mspa_face-16.png",
 		"48": "48.png"
