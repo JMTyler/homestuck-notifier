@@ -291,6 +291,7 @@
 			jmtyler.log('starting content request');
 			
 			contentRequest.open('GET', feedUri, true);
+			contentRequest.setRequestHeader('Cache-Control', 'no-cache');
 			contentRequest.send(null);
 			
 			return;
@@ -305,6 +306,7 @@
 		jmtyler.log('starting ping request');
 		
 		pingRequest.open('HEAD', feedUri, true);
+		pingRequest.setRequestHeader('Cache-Control', 'no-cache');
 		pingRequest.send(null);
 		
 		return;
