@@ -25,6 +25,9 @@
 	var badgeColour = '#00AA00';
 	if (jmtyler.settings.get('is_debug_mode')) {
 		badgeColour = '#BB0000';
+
+		chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
+		chrome.browserAction.setBadgeText({text: 'dbg'});
 	}
 	
 	var _main = function()
