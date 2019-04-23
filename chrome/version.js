@@ -39,6 +39,22 @@ jmtyler.version = (function()
 				jmtyler.memory.clear('is_gigapause_over');
 			}
 		});
+
+		_addUpdate({
+			from: '1.4.2',
+			to:   '1.5.0',
+			with: function() {
+				var lastPageRead = jmtyler.memory.get('last_page_read');
+				var matches = lastPageRead.match(/^http:\/\/www\.mspaintadventures\.com\/?.*\?s=6&p=(\d+)/);
+				if (matches === null) {
+					return;
+				}
+
+				var mspaPageId = parseInt(matches[1], 10);
+				var homestuckPageId = mspaPageId - 1900;
+				jmtyler.memory.set('last_page_read', 'https://www.homestuck.com/story/' + homestuckPageId);
+			}
+		});
 		
 		return;
 	};
