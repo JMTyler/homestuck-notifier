@@ -21,6 +21,11 @@
 		idle: 'mspa_face.gif',
 		updates: 'whatpumpkin.gif'
 	};
+
+	var badgeColour = '#00AA00';
+	if (jmtyler.settings.get('is_debug_mode')) {
+		badgeColour = '#BB0000';
+	}
 	
 	var _main = function()
 	{
@@ -48,7 +53,7 @@
 			var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
 			var unreadPageCount = latestUpdatePageId - lastPageReadId;
 			
-			chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
+			chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
 			chrome.browserAction.setBadgeText({text: unreadPageCount.toString()});
 		}
 		
@@ -82,7 +87,7 @@
 				var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
 				var unreadPageCount = latestUpdatePageId - lastPageReadId;
 				
-				chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
+				chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
 				chrome.browserAction.setBadgeText({text: unreadPageCount.toString()});
 			}
 			// Considered forcing a recheck after setting your new page, but decided there's no point.
@@ -121,7 +126,7 @@
 				if (latestUpdate !== false && doShowPageCount) {
 					var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
 					var unreadPageCount = latestUpdatePageId - thisPageId;
-					chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
+					chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
 					chrome.browserAction.setBadgeText({text: unreadPageCount.toString()});
 				}
 			}
@@ -252,7 +257,7 @@
 					chrome.browserAction.setIcon({path: icons.updates});
 				}
 				if (doShowPageCount) {
-					chrome.browserAction.setBadgeBackgroundColor({color: '#00AA00'});
+					chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
 					chrome.browserAction.setBadgeText({text: unreadPagesText});
 				}
 				jmtyler.memory.set('latest_update', newLatestUpdate);
