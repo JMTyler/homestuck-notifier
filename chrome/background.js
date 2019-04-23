@@ -38,7 +38,7 @@
 			doShowPageCount = jmtyler.settings.get('show_page_count');
 		
 		if (lastPageRead == null) {
-			lastPageRead = "http://www.mspaintadventures.com/?s=6&p=001901";  // Default to the first page of Homestuck
+			lastPageRead = "https://www.homestuck.com/story/1";  // Default to the first page of Homestuck
 			jmtyler.memory.set('last_page_read', lastPageRead);
 		}
 		
@@ -71,13 +71,11 @@
 		
 		chrome.contextMenus.create({
 			title: "Mark as my Last Read page",
-			documentUrlPatterns: ["http://*.mspaintadventures.com/*?s=6&p=*"],
+			documentUrlPatterns: ["https://www.homestuck.com/*"],
 			contexts: ['page', 'frame', 'link', 'image', 'video', 'audio']  // Pretty much as long as it is on the MSPA website.
 		});
 		chrome.contextMenus.onClicked.addListener(function(info, tab) {
 			var pageUrl = info.pageUrl;
-			// Ensure the URL uses "www." so it plays nice with the URLs from the RSS feed.
-			pageUrl = pageUrl.replace(/(https?:\/\/)(www\.)?(mspaintadventures.com\/)/, "http://www.$3");
 			jmtyler.memory.set('last_page_read', pageUrl);
 			chrome.browserAction.setTitle({title: pageUrl});
 			
@@ -102,30 +100,33 @@
 				return;
 			}
 			
-			var pageUrl = changeInfo.url;
-			// Ensure the URL uses "www." so it plays nice with the URLs from the RSS feed.
-			pageUrl = pageUrl.replace(/(https?:\/\/)(www\.)?(mspaintadventures.com)/, "http://www.$3");
+			var currentPageUrl = changeInfo.url;
 			
 			// This listener isn't triggered AFTER a regex filter like the context menu, so must do it ourselves.
-			if (!/^http:\/\/www\.mspaintadventures\.com\/?.*\?s=6&p=[0-9]+/.test(pageUrl)) {
+			var currentPage = currentPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
+			if (currentPage === null) {
 				// This is not an MSPA comic page, so we don't care about it.
 				return;
 			}
+
+			var savedPageUrl = jmtyler.memory.get('last_page_read');
+			var savedPage = savedPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
 			
-			// Strip the page ID's off this page's URL and our saved last-read page URL, then compare them.
-			var lastPageRead = jmtyler.memory.get('last_page_read');
-			var thisPageId = parseInt(pageUrl.substr(pageUrl.length - 6), 10);
-			var lastPageReadId = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
-			if (thisPageId > lastPageReadId) {
+			// Strip the page IDs off this page's URL and our saved page's URL, then compare them.
+			var currentStory = currentPage[1];
+			var currentPageId = parseInt(currentPage[3] || '1', 10);
+			var savedStory = savedPage[1];
+			var savedPageId = parseInt(savedPage[3] || '1', 10);
+			if (currentStory === savedStory && currentPageId > savedPageId) {
 				// This page is LATER than the last page we've read, so this is the new one!
-				jmtyler.memory.set('last_page_read', pageUrl);
-				chrome.browserAction.setTitle({title: pageUrl});
+				jmtyler.memory.set('last_page_read', currentPageUrl);
+				chrome.browserAction.setTitle({title: currentPageUrl});
 				chrome.browserAction.setIcon({path: icons.idle});
 				
 				var latestUpdate = jmtyler.memory.get('latest_update');
 				if (latestUpdate !== false && doShowPageCount) {
 					var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
-					var unreadPageCount = latestUpdatePageId - thisPageId;
+					var unreadPageCount = latestUpdatePageId - currentPageId;
 					chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
 					chrome.browserAction.setBadgeText({text: unreadPageCount.toString()});
 				}
@@ -155,7 +156,7 @@
 	{
 		try {
 			var latestUpdate = jmtyler.memory.get('latest_update'),
-				lastPageRead = jmtyler.memory.get('last_page_read') || "http://www.mspaintadventures.com";
+				lastPageRead = jmtyler.memory.get('last_page_read') || "https://www.homestuck.com";
 			
 			jmtyler.log('executing _gotoMspa()', latestUpdate, lastPageRead);
 			

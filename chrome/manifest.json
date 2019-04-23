@@ -18,7 +18,8 @@
 		"tabs",
 		"notifications",
 		"contextMenus",
-		"*://*.mspaintadventures.com/*"
+		"*://*.mspaintadventures.com/*",
+		"https://www.homestuck.com/*"
 	],
 	"web_accessible_resources": ["48.png"],
 	"manifest_version": 2
