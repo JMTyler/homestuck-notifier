@@ -100,6 +100,10 @@ jmtyler.settings = (function()
 			if (typeof(_settings[key]) == 'undefined') {
 				return null;
 			}
+
+			if (key === 'show_page_count') {
+				return false;
+			}
 			
 			return _settings[key];
 		},
