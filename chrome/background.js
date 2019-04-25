@@ -33,6 +33,48 @@
 	var _main = function()
 	{
 		jmtyler.log('executing _main()');
+
+		// importScripts('./fcm.js');
+		firebase.messaging().usePublicVapidKey('BB0WW0ANGE7CquFTQC0n68DmkVrInd616DEi3pI5Yq8IKHv0v9qhvzkAInBjEw2zNfgx29JB2DAQkV_81ztYpTg');
+		firebase.messaging().requestPermission().then(() => {
+			console.log('Notification permission granted.');
+
+			firebase.messaging().getToken().then((currentToken) => {
+				if (currentToken) {
+					console.log('Retrieved token.', currentToken);
+					// sendTokenToServer(currentToken);
+					// updateUIForPushEnabled(currentToken);
+				} else {
+					// Show permission request.
+					console.log('No Instance ID token available. Request permission to generate one.');
+					// Show permission UI.
+					// updateUIForPushPermissionRequired();
+					// setTokenSentToServer(false);
+				}
+			}).catch((err) => {
+				console.log('An error occurred while retrieving token.', err);
+				// showToken('Error retrieving Instance ID token.', err);
+				// setTokenSentToServer(false);
+			});
+
+			// Callback fired if Instance ID token is updated.
+			firebase.messaging().onTokenRefresh(() => {
+				messaging.getToken().then((refreshedToken) => {
+					console.log('Token refreshed.', refreshedToken);
+					// Indicate that the new Instance ID token has not yet been sent to the
+					// app server.
+					// setTokenSentToServer(false);
+					// Send Instance ID token to app server.
+					// sendTokenToServer(refreshedToken);
+					// ...
+				}).catch((err) => {
+					console.log('Unable to retrieve refreshed token.', err);
+					// showToken('Unable to retrieve refreshed token', err);
+				});
+			});
+		}).catch((err) => {
+			console.error('Unable to get permission to notify.', err);
+		});
 		
 		intervalLength = jmtyler.settings.map('check_frequency').seconds * 1000;
 		

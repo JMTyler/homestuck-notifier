@@ -10,7 +10,17 @@
 		"default_icon": "mspa_face.gif"
 	},
 	"background": {
-		"scripts": ["settings.js", "memory.js", "version.js", "background.js"],
+		"scripts": [
+			"settings.js",
+			"memory.js",
+			"version.js",
+
+			"lib/firebase-app-v5.10.0.js",
+			"lib/firebase-messaging-v5.10.0.js",
+			"fcm.js",
+
+			"background.js"
+		],
 		"persistent": true
 	},
 	"options_page": "options.html",
@@ -22,5 +32,6 @@
 		"https://www.homestuck.com/*"
 	],
 	"web_accessible_resources": ["48.png"],
-	"manifest_version": 2
+	"manifest_version": 2,
+	"gcm_sender_id": "103953800507"
 }
