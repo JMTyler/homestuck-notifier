@@ -16,7 +16,7 @@
 (function() {
 	var checkInterval = null,
 		intervalLength = null;
-	
+
 	var icons = {
 		idle: 'mspa_face.gif',
 		updates: 'whatpumpkin.gif'
@@ -29,64 +29,35 @@
 		chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
 		chrome.browserAction.setBadgeText({text: 'dbg'});
 	}
-	
+
 	var _main = function()
 	{
 		jmtyler.log('executing _main()');
 
-		// importScripts('./fcm.js');
-		firebase.messaging().usePublicVapidKey('BB0WW0ANGE7CquFTQC0n68DmkVrInd616DEi3pI5Yq8IKHv0v9qhvzkAInBjEw2zNfgx29JB2DAQkV_81ztYpTg');
-		firebase.messaging().requestPermission().then(() => {
-			console.log('Notification permission granted.');
+		// var vapidKey = 'BB0WW0ANGE7CquFTQC0n68DmkVrInd616DEi3pI5Yq8IKHv0v9qhvzkAInBjEw2zNfgx29JB2DAQkV_81ztYpTg';
+		// chrome.gcm.register([ vapidKey ], (registrationId) => {
+		chrome.instanceID.getToken({ authorizedEntity: '710329635775', scope: 'GCM' }, (token) => {
+			console.log('registered with gcm', token || chrome.runtime.lastError.message);
 
-			firebase.messaging().getToken().then((currentToken) => {
-				if (currentToken) {
-					console.log('Retrieved token.', currentToken);
-					// sendTokenToServer(currentToken);
-					// updateUIForPushEnabled(currentToken);
-				} else {
-					// Show permission request.
-					console.log('No Instance ID token available. Request permission to generate one.');
-					// Show permission UI.
-					// updateUIForPushPermissionRequired();
-					// setTokenSentToServer(false);
-				}
-			}).catch((err) => {
-				console.log('An error occurred while retrieving token.', err);
-				// showToken('Error retrieving Instance ID token.', err);
-				// setTokenSentToServer(false);
+			// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
+			// TODO: For some features, we must specify a lowest supported Chrome version.  Will that allow us to use ES6 features too?
+			chrome.gcm.onMessage.addListener(({ data }) => {
+				console.log('received gcm message', data);
+				messageHandlers.freshPotato(data);
 			});
-
-			// Callback fired if Instance ID token is updated.
-			firebase.messaging().onTokenRefresh(() => {
-				messaging.getToken().then((refreshedToken) => {
-					console.log('Token refreshed.', refreshedToken);
-					// Indicate that the new Instance ID token has not yet been sent to the
-					// app server.
-					// setTokenSentToServer(false);
-					// Send Instance ID token to app server.
-					// sendTokenToServer(refreshedToken);
-					// ...
-				}).catch((err) => {
-					console.log('Unable to retrieve refreshed token.', err);
-					// showToken('Unable to retrieve refreshed token', err);
-				});
-			});
-		}).catch((err) => {
-			console.error('Unable to get permission to notify.', err);
 		});
-		
+
 		intervalLength = jmtyler.settings.map('check_frequency').seconds * 1000;
-		
+
 		var lastPageRead    = jmtyler.memory.get('last_page_read'),
 			latestUpdate    = jmtyler.memory.get('latest_update'),
 			doShowPageCount = jmtyler.settings.get('show_page_count');
-		
+
 		if (lastPageRead == null) {
 			lastPageRead = "https://www.homestuck.com/story/1";  // Default to the first page of Homestuck
 			jmtyler.memory.set('last_page_read', lastPageRead);
 		}
-		
+
 		// After startup, make sure the browser action still looks as it should with context.
 		chrome.browserAction.setTitle({title: lastPageRead});
 		chrome.browserAction.setIcon({path: icons.idle});
@@ -97,14 +68,14 @@
 			var lastPageReadId = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
 			var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
 			var unreadPageCount = latestUpdatePageId - lastPageReadId;
-			
+
 			chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
 			chrome.browserAction.setBadgeText({text: unreadPageCount.toString()});
 		}
-		
+
 		chrome.browserAction.onClicked.addListener(_gotoMspa);
-		
-		chrome.extension.onRequest.addListener(function(request, sender, sendResponse) {
+
+		chrome.extension.onRequest.addListener((request, sender, sendResponse) => {
 			switch (request.method) {
 				case 'forceCheck':
 					jmtyler.memory.clear('http_last_modified');
@@ -113,7 +84,32 @@
 					break;
 			}
 		});
-		
+
+		const messageHandlers = {
+			freshPotato({ story, arc, endpoint, page }) {
+				// Show notification for new updates.
+				var toastIcon    = jmtyler.settings.get('toast_icon_uri'),
+					toastTitle   = "New MSPA Update!",
+					toastMessage = "Click here to start reading!";
+
+				_playSound();
+
+				var notification = new Notification(toastTitle, {
+					icon: toastIcon,
+					body: toastMessage
+				});
+				notification.onclick = function()
+				{
+					this.close();
+					_gotoMspa();
+				};
+
+				setTimeout(function() {
+					notification.close();
+				}, 10000);
+			},
+		};
+
 		chrome.contextMenus.create({
 			title: "Mark as my Last Read page",
 			documentUrlPatterns: ["https://www.homestuck.com/*"],
@@ -123,13 +119,13 @@
 			var pageUrl = info.pageUrl;
 			jmtyler.memory.set('last_page_read', pageUrl);
 			chrome.browserAction.setTitle({title: pageUrl});
-			
+
 			var latestUpdate = jmtyler.memory.get('latest_update');
 			if (latestUpdate !== false && doShowPageCount) {
 				var lastPageReadId = parseInt(pageUrl.substr(pageUrl.length - 6), 10);
 				var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
 				var unreadPageCount = latestUpdatePageId - lastPageReadId;
-				
+
 				chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
 				chrome.browserAction.setBadgeText({text: unreadPageCount.toString()});
 			}
@@ -139,14 +135,14 @@
 			//jmtyler.memory.clear('latest_update');
 			//_checkForUpdates();
 		});
-		
+
 		chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
 			if (typeof changeInfo.url == "undefined") {
 				return;
 			}
-			
+
 			var currentPageUrl = changeInfo.url;
-			
+
 			// This listener isn't triggered AFTER a regex filter like the context menu, so must do it ourselves.
 			var currentPage = currentPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
 			if (currentPage === null) {
@@ -156,7 +152,7 @@
 
 			var savedPageUrl = jmtyler.memory.get('last_page_read');
 			var savedPage = savedPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
-			
+
 			// Strip the page IDs off this page's URL and our saved page's URL, then compare them.
 			var currentStory = currentPage[1];
 			var currentPageId = parseInt(currentPage[3] || '1', 10);
@@ -167,7 +163,7 @@
 				jmtyler.memory.set('last_page_read', currentPageUrl);
 				chrome.browserAction.setTitle({title: currentPageUrl});
 				chrome.browserAction.setIcon({path: icons.idle});
-				
+
 				var latestUpdate = jmtyler.memory.get('latest_update');
 				if (latestUpdate !== false && doShowPageCount) {
 					var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
@@ -177,22 +173,22 @@
 				}
 			}
 		});
-		
+
 		// Make some key functions globally accessible for debug mode.
 		if (jmtyler.settings.get('is_debug_mode')) {
 			window.gotoMspa = function(){ _gotoMspa(); };
 			window.checkForUpdates = function(){ _checkForUpdates(); };
 			window.playSound = function(){ _playSound(); };
 			window.clearData = function(){ _clearData(); };
-			
+
 			return;  // Don't want the interval running during debug mode.
 		}
-		
+
 		// Kick it all off!
 		checkInterval = setInterval(_checkForUpdates, intervalLength);
 		_checkForUpdates();
 	};
-	
+
 	/**
 	 * Set button icon as idle, open a new tab with the last page read,
 	 * and set the new 'last page read' as the latest update available.
@@ -202,17 +198,17 @@
 		try {
 			var latestUpdate = jmtyler.memory.get('latest_update'),
 				lastPageRead = jmtyler.memory.get('last_page_read') || "https://www.homestuck.com";
-			
+
 			jmtyler.log('executing _gotoMspa()', latestUpdate, lastPageRead);
-			
+
 			chrome.tabs.create({url: lastPageRead});
 		} catch (e) {
 			jmtyler.log('failed to open new tab for MSPA', e);
 		}
-		
+
 		return;
 	};
-	
+
 	/**
 	 * Queries the MSPA RSS feed.  Changes the button icon if there is an error
 	 * or if there are new updates available.  If there are updates, adds a count
@@ -221,11 +217,11 @@
 	var _checkForUpdates = function()
 	{
 		jmtyler.log('executing _checkForUpdates()');
-		
+
 		var areNotificationsOn = jmtyler.settings.get('notifications_on'),
 			doShowPageCount    = jmtyler.settings.get('show_page_count'),
 			newIntervalLength  = jmtyler.settings.map('check_frequency').seconds * 1000;
-		
+
 		// Interval length setting has been changed, so set a new interval.
 		// TODO: Changes to interval length should take effect immediately.
 		if (newIntervalLength != intervalLength && !jmtyler.settings.get('is_debug_mode')) {
@@ -235,58 +231,58 @@
 			}
 			checkInterval = setInterval(_checkForUpdates, intervalLength);
 		}
-		
+
 		var lastPageRead = jmtyler.memory.get('last_page_read'),
 			latestUpdate = jmtyler.memory.get('latest_update');
-		
+
 		// TODO: All the following XHR crap is incredibly grotesque... put some time into encapsulating & simplifying it.
-		
+
 		var feedUri = "http://mspaintadventures.com/rss/rss.xml",
 			pingRequest = new XMLHttpRequest();
-		
+
 		pingRequest.onload = function()
 		{
 			var myLastModified    = jmtyler.memory.get('http_last_modified'),
 				theirLastModified = pingRequest.getResponseHeader('Last-Modified');
-			
+
 			jmtyler.log('completed ping request', lastPageRead, latestUpdate, myLastModified, theirLastModified);
-			
+
 			if (myLastModified == theirLastModified) {
 				// No updates.
 				return;
 			}
-			
+
 			jmtyler.memory.set('http_last_modified', theirLastModified);
-			
+
 			var contentRequest = new XMLHttpRequest();
 			contentRequest.onload = function()
 			{
 				jmtyler.log('completed content request', contentRequest.responseXML);
-				
+
 				var xml = contentRequest.responseXML;
 				if (!xml) {
 					console.log('invalid rss feed received.');
 					return;
 				}
-				
+
 				var pages = xml.getElementsByTagName('item');
 				var count = Math.min(pages.length, 40);
 				var unreadPagesCount = 0;
-				
+
 				var item = pages.item(0);
 				var guid = item.getElementsByTagName('guid')[0];
 				var newLatestUpdate = guid ? guid.textContent : null;
-				
+
 				if (newLatestUpdate === null) {
 					console.log('could not find guid on first rss item');
 					return;
 				}
-				
+
 				// No need to pop up the notification more than once for the same update!
 				if (newLatestUpdate == latestUpdate) {
 					return;
 				}
-				
+
 				var lastPageReadId = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
 				var latestUpdatePageId = parseInt(newLatestUpdate.substr(newLatestUpdate.length - 6), 10);
 				var unreadPagesCount = latestUpdatePageId - lastPageReadId;
@@ -295,9 +291,9 @@
 					chrome.browserAction.setBadgeText({text: ''});
 					return;
 				}
-				
+
 				var unreadPagesText = unreadPagesCount.toString();
-				
+
 				// Update button for new updates.
 				if (latestUpdate !== false) {
 					chrome.browserAction.setIcon({path: icons.updates});
@@ -307,15 +303,15 @@
 					chrome.browserAction.setBadgeText({text: unreadPagesText});
 				}
 				jmtyler.memory.set('latest_update', newLatestUpdate);
-				
+
 				if (areNotificationsOn) {
 					// Show notification for new updates.
 					var toastIcon    = jmtyler.settings.get('toast_icon_uri'),
 						toastTitle   = "New MSPA Update!",
 						toastMessage = "Click here to start reading!" + (doShowPageCount ? ("\n" + unreadPagesText + " new pages") : "");
-					
+
 					_playSound();
-					
+
 					var notification = new Notification(toastTitle, {
 						icon: toastIcon,
 						body: toastMessage
@@ -325,51 +321,51 @@
 						this.close();
 						_gotoMspa();
 					};
-					
+
 					setTimeout(function() {
 						notification.close();
 					}, 10000);
 				}
 			};
-			
+
 			contentRequest.onerror = function()
 			{
 				// TODO: Seriously have to improve my error reporting.
 				console.log('something went wrong, brotha.');
 				return;
 			};
-			
+
 			jmtyler.log('starting content request');
-			
+
 			contentRequest.open('GET', feedUri, true);
 			contentRequest.setRequestHeader('Cache-Control', 'no-cache');
 			contentRequest.send(null);
-			
+
 			return;
 		};
-		
+
 		pingRequest.onerror = function()
 		{
 			console.log('something went wrong, brotha.');
 			return;
 		};
-		
+
 		jmtyler.log('starting ping request');
-		
+
 		pingRequest.open('HEAD', feedUri, true);
 		pingRequest.setRequestHeader('Cache-Control', 'no-cache');
 		pingRequest.send(null);
-		
+
 		return;
 	};
-	
+
 	var _playSound = function()
 	{
 		var toastSoundUri = jmtyler.settings.get('toast_sound_uri');
 		if (toastSoundUri == null) {
 			return;
 		}
-		
+
 		// Get the existing <audio /> element from the page, if one's already been created ...
 		var audio = document.getElementsByTagName('audio');
 		if (audio.length > 0) {
@@ -382,11 +378,11 @@
 			audio.controls = false;
 			audio.volume = 1.0;
 		}
-		
+
 		// Bam.  Audio automatically plays when you set the 'src' property, apparently.
 		audio.src = toastSoundUri;
 	};
-	
+
 	var _clearData = function()
 	{
 		jmtyler.settings.clear();
@@ -394,22 +390,22 @@
 		chrome.browserAction.setIcon({path: icons.idle});
 		chrome.browserAction.setBadgeText({text: ''});
 	};
-	
+
 	var _currentVersion = chrome.runtime.getManifest().version;
-	
+
 	chrome.runtime.onInstalled.addListener(function(details) {
 		jmtyler.log('executing onInstalled()', _currentVersion, details);
 		if (_currentVersion == details.previousVersion) {
 			jmtyler.log('  new version is same as old version... aborting');
 			return;
 		}
-		
+
 		// If the latest version has already been fully installed, don't do anything. (Not sure how we got here, though.)
 		if (jmtyler.version.isInstalled(_currentVersion)) {
 			jmtyler.log('  new version has already been installed... aborting');
 			return;
 		}
-		
+
 		// Install the latest version, performing any necessary migrations.
 		if (details.reason == "install") {
 			jmtyler.log('  extension is newly installed');
@@ -420,15 +416,15 @@
 		} else {
 			jmtyler.log('  extension is in some unhandled state... [' + details.reason + ']');
 		}
-		
+
 		jmtyler.log('  done migration, ready to run _main()');
-		
+
 		// Now that we've finished any migrations, we can run the main process.
 		_main();
 	});
-	
+
 	jmtyler.log('checking if current version has been installed...' + (jmtyler.version.isInstalled(_currentVersion) ? 'yes' : 'no'));
-	
+
 	// Only run the main process immediately if the latest version has already been fully installed.
 	if (jmtyler.version.isInstalled(_currentVersion)) {
 		jmtyler.log('current version is installed, running _main() immediately');
