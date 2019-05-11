@@ -85,28 +85,26 @@
 			}
 		});
 
+		chrome.notifications.onClicked.addListener((id) => {
+			chrome.notifications.clear(id);
+			_gotoMspa();
+		});
+
 		const messageHandlers = {
 			freshPotato({ story, arc, endpoint, page }) {
 				// Show notification for new updates.
-				var toastIcon    = jmtyler.settings.get('toast_icon_uri'),
-					toastTitle   = "New MSPA Update!",
-					toastMessage = "Click here to start reading!";
+				var iconUrl = jmtyler.settings.get('toast_icon_uri');
+				var title   = "Homestuck.com - " + story;
+				var message = "Update!! Click here to start reading!";
 
 				_playSound();
 
-				var notification = new Notification(toastTitle, {
-					icon: toastIcon,
-					body: toastMessage
+				chrome.notifications.create({ type: 'basic', title, message, iconUrl }, (id) => {
+					// TODO: This doesn't seem to have an effect.  The toast is clearing itself automatically.
+					setTimeout(() => {
+						chrome.notifications.clear(id);
+					}, 10000);
 				});
-				notification.onclick = function()
-				{
-					this.close();
-					_gotoMspa();
-				};
-
-				setTimeout(function() {
-					notification.close();
-				}, 10000);
 			},
 		};
 
