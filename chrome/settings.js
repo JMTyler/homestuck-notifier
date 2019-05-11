@@ -10,54 +10,8 @@ jmtyler.settings = (function()
 	var _defaults = {
 		'notifications_on' : true,
 		'show_page_count'  : true,
-		'check_frequency'  : 3,
 		'toast_icon_uri'   : 'icons/48.png',
 		'is_debug_mode'    : false
-	};
-
-	var _maps = {
-		'check_frequency': {
-			1:  {
-				seconds: 60,
-				readable: "1 minute"
-			},
-			2:  {
-				seconds: 120,
-				readable: "2 minutes"
-			},
-			3:  {
-				seconds: 300,
-				readable: "5 minutes"
-			},
-			4:  {
-				seconds: 600,
-				readable: "10 minutes"
-			},
-			5:  {
-				seconds: 1800,
-				readable: "30 minutes"
-			},
-			6:  {
-				seconds: 3600,
-				readable: "1 hour"
-			},
-			7:  {
-				seconds: 7200,
-				readable: "2 hours"
-			},
-			8:  {
-				seconds: 18000,
-				readable: "5 hours"
-			},
-			9:  {
-				seconds: 43200,
-				readable: "12 hours"
-			},
-			10: {
-				seconds: 86400,
-				readable: "24 hours"
-			}
-		}
 	};
 
 	var _load = function()

@@ -1,8 +1,5 @@
 
 (function() {
-	let checkInterval  = null;
-	let intervalLength = null;
-
 	const icons = {
 		idle:    'icons/16.png',
 		updates: 'icons/whatpumpkin.gif',
@@ -32,8 +29,6 @@
 			});
 		});
 
-		intervalLength = jmtyler.settings.map('check_frequency').seconds * 1000;
-
 		let lastPageRead      = jmtyler.memory.get('last_page_read');
 		const latestUpdate    = jmtyler.memory.get('latest_update');
 		const doShowPageCount = jmtyler.settings.get('show_page_count');
@@ -60,16 +55,6 @@
 
 		chrome.browserAction.onClicked.addListener(GotoMspa);
 
-		chrome.extension.onRequest.addListener((request) => {
-			switch (request.method) {
-				case 'forceCheck':
-					jmtyler.memory.clear('http_last_modified');
-					jmtyler.memory.clear('latest_update');
-					CheckForUpdates();
-					break;
-			}
-		});
-
 		chrome.notifications.onClicked.addListener((id) => {
 			chrome.notifications.clear(id);
 			GotoMspa();
@@ -86,9 +71,7 @@
 
 				chrome.notifications.create({ type: 'basic', title, message, iconUrl }, (id) => {
 					// TODO: This doesn't seem to have an effect.  The toast is clearing itself automatically.
-					setTimeout(() => {
-						chrome.notifications.clear(id);
-					}, 10000);
+					setTimeout(() => chrome.notifications.clear(id), 10000);
 				});
 			},
 		};
@@ -117,11 +100,6 @@
 				chrome.browserAction.setBadgeBackgroundColor({ color: badgeColour });
 				chrome.browserAction.setBadgeText({ text: unreadPageCount.toString() });
 			}
-			// Considered forcing a recheck after setting your new page, but decided there's no point.
-			// Leaving this here in case I change my mind, but I'll probably remove it after a few commits.
-			//jmtyler.memory.clear('http_last_modified');
-			//jmtyler.memory.clear('latest_update');
-			//CheckForUpdates();
 		});
 
 		chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
@@ -167,16 +145,11 @@
 		// Make some key functions globally accessible for debug mode.
 		if (jmtyler.settings.get('is_debug_mode')) {
 			window.GotoMspa        = () => GotoMspa();
-			window.CheckForUpdates = () => CheckForUpdates();
 			window.PlaySound       = () => PlaySound();
 			window.ClearData       = () => ClearData();
 
 			return;  // Don't want the interval running during debug mode.
 		}
-
-		// Kick it all off!
-		checkInterval = setInterval(CheckForUpdates, intervalLength);
-		CheckForUpdates();
 	};
 
 	/**
@@ -194,149 +167,6 @@
 		} catch (e) {
 			jmtyler.log('failed to open new tab for MSPA', e);
 		}
-
-		return;
-	};
-
-	/**
-	 * Queries the MSPA RSS feed.  Changes the button icon if there is an error
-	 * or if there are new updates available.  If there are updates, adds a count
-	 * onto the button.
-	 */
-	const CheckForUpdates = () => {
-		jmtyler.log('executing CheckForUpdates()');
-
-		const areNotificationsOn = jmtyler.settings.get('notifications_on');
-		const doShowPageCount    = jmtyler.settings.get('show_page_count');
-		const newIntervalLength  = jmtyler.settings.map('check_frequency').seconds * 1000;
-
-		// Interval length setting has been changed, so set a new interval.
-		// TODO: Changes to interval length should take effect immediately.
-		if (newIntervalLength != intervalLength && !jmtyler.settings.get('is_debug_mode')) {
-			intervalLength = newIntervalLength;
-			if (checkInterval != null) {
-				clearInterval(checkInterval);
-			}
-			checkInterval = setInterval(CheckForUpdates, intervalLength);
-		}
-
-		const lastPageRead = jmtyler.memory.get('last_page_read');
-		const latestUpdate = jmtyler.memory.get('latest_update');
-
-		// TODO: All the following XHR crap is incredibly grotesque... put some time into encapsulating & simplifying it.
-
-		const feedUri = "http://mspaintadventures.com/rss/rss.xml";
-
-		const pingRequest = new XMLHttpRequest();
-		pingRequest.onload = () => {
-			const myLastModified    = jmtyler.memory.get('http_last_modified');
-			const theirLastModified = pingRequest.getResponseHeader('Last-Modified');
-
-			jmtyler.log('completed ping request', lastPageRead, latestUpdate, myLastModified, theirLastModified);
-
-			if (myLastModified == theirLastModified) {
-				// No updates.
-				return;
-			}
-
-			jmtyler.memory.set('http_last_modified', theirLastModified);
-
-			const contentRequest = new XMLHttpRequest();
-			contentRequest.onload = () => {
-				jmtyler.log('completed content request', contentRequest.responseXML);
-
-				const xml = contentRequest.responseXML;
-				if (!xml) {
-					console.log('invalid rss feed received.');
-					return;
-				}
-
-				const pages = xml.getElementsByTagName('item');
-				const item  = pages.item(0);
-				const guid  = item.getElementsByTagName('guid')[0];
-
-				const newLatestUpdate = guid ? guid.textContent : null;
-
-				if (newLatestUpdate === null) {
-					console.log('could not find guid on first rss item');
-					return;
-				}
-
-				// No need to pop up the notification more than once for the same update!
-				if (newLatestUpdate == latestUpdate) {
-					return;
-				}
-
-				const lastPageReadId     = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
-				const latestUpdatePageId = parseInt(newLatestUpdate.substr(newLatestUpdate.length - 6), 10);
-				const unreadPagesCount   = latestUpdatePageId - lastPageReadId;
-				if (unreadPagesCount < 1) {
-					chrome.browserAction.setIcon({ path: icons.idle });
-					chrome.browserAction.setBadgeText({ text: '' });
-					return;
-				}
-
-				const unreadPagesText = unreadPagesCount.toString();
-
-				// Update button for new updates.
-				if (latestUpdate !== false) {
-					chrome.browserAction.setIcon({ path: icons.updates });
-				}
-				if (doShowPageCount) {
-					chrome.browserAction.setBadgeBackgroundColor({ color: badgeColour });
-					chrome.browserAction.setBadgeText({ text: unreadPagesText });
-				}
-				jmtyler.memory.set('latest_update', newLatestUpdate);
-
-				if (areNotificationsOn) {
-					// Show notification for new updates.
-					const toastIcon    = jmtyler.settings.get('toast_icon_uri');
-					const toastTitle   = "New MSPA Update!";
-					const toastMessage = "Click here to start reading!" + (doShowPageCount ? ("\n" + unreadPagesText + " new pages") : "");
-
-					PlaySound();
-
-					const notification = new Notification(toastTitle, {
-						icon: toastIcon,
-						body: toastMessage,
-					});
-					notification.onclick = function()
-					{
-						this.close();
-						GotoMspa();
-					};
-
-					setTimeout(() => {
-						notification.close();
-					}, 10000);
-				}
-			};
-
-			contentRequest.onerror = () => {
-				// TODO: Seriously have to improve my error reporting.
-				console.log('something went wrong, brotha.');
-				return;
-			};
-
-			jmtyler.log('starting content request');
-
-			contentRequest.open('GET', feedUri, true);
-			contentRequest.setRequestHeader('Cache-Control', 'no-cache');
-			contentRequest.send(null);
-
-			return;
-		};
-
-		pingRequest.onerror = () => {
-			console.log('something went wrong, brotha.');
-			return;
-		};
-
-		jmtyler.log('starting ping request');
-
-		pingRequest.open('HEAD', feedUri, true);
-		pingRequest.setRequestHeader('Cache-Control', 'no-cache');
-		pingRequest.send(null);
 
 		return;
 	};

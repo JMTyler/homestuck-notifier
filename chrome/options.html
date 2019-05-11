@@ -4,43 +4,30 @@
 		<script type="text/javascript" src="lib/jquery-1.9.1.min.js"></script>
 		<script type="text/javascript" src="lib/jquery-ui-1.10.2.custom.min.js"></script>
 		<link type="text/css" rel="stylesheet" href="lib/jquery-ui-1.10.2.custom.min.css" />
-		
+
 		<script type="text/javascript" src="settings.js"></script>
 		<script type="text/javascript" src="options.js"></script>
 	</head>
-	
+
 	<body>
 		<div class="section ui-corner-all ui-widget-content" style="padding: 1em 2.2em; width: 35em; margin: 50px auto 20px;">
 			<h1 style="margin-top: 0; margin-bottom: 1em; text-align: center; font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, Arial, sans-serif;">
 				Settings
 			</h1>
-			
-			<div id="grpFrequency">
-				<h2 style="font-size: 1.2em; font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, Arial, sans-serif;">
-					Check for Updates...
-				</h2>
-				<div style="text-align: center;">
-					<div id="sldFrequency"></div>
-					<span id="lblFrequency" style="font-size: 0.9em; font-weight: bold; display: inline-block; width: 100%; font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, Arial, sans-serif;"></span>
-					<button id="btnForceCheck" class="small" style="margin-top: 10px;">Check Now</button>
-				</div>
-			</div>
-			
-			<br/>
-			
+
 			<div id="grpToast" style="display: inline-block; text-align: center;">
 				<h2 style="font-size: 1.2em; font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, Arial, sans-serif;">
-					Show Toast Notifications:
+					Show Notifications:
 				</h2>
 				<div id="radToast">
 					<input type="radio" id="radToastOn" name="radToast" value="on" />
 					<label for="radToastOn">Yes</label>
-					
+
 					<input type="radio" id="radToastOff" name="radToast" value="off" />
 					<label for="radToastOff">No</label>
 				</div>
 			</div>
-			
+
 			<div id="grpShowCount" style="display: inline-block; text-align: center; float: right;">
 				<h2 style="font-size: 1.2em; font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, Arial, sans-serif;">
 					Show Unread Page Count:
@@ -48,7 +35,7 @@
 				<div id="radShowCount">
 					<input type="radio" id="radShowCountOn" name="radShowCount" value="on" disabled />
 					<label for="radShowCountOn">Yes</label>
-					
+
 					<input type="radio" id="radShowCountOff" name="radShowCount" value="off" disabled />
 					<label for="radShowCountOff">No</label>
 				</div>
@@ -56,10 +43,10 @@
 					This feature is temporarily disabled.
 				</span>
 			</div>
-			
+
 			<br/>
 			<br/>
-			
+
 			<div id="grpToastIcon">
 				<h2 style="font-size: 1.2em; font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, Arial, sans-serif;">
 					Notification Icon:
@@ -69,7 +56,7 @@
 					<img id="imgToastIcon" style="vertical-align: middle;" />
 				</div>
 			</div>
-			
+
 			<div id="grpToastSound">
 				<h2 style="font-size: 1.2em; font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, Arial, sans-serif;">
 					Notification Sound:
@@ -79,16 +66,14 @@
 					<audio id="audToastSound" style="vertical-align: middle;" controls="true" />
 				</div>
 			</div>
-			
-			<input type="hidden" id="hdnDebugMode" />
-			
+
 			<div style="display: inline-block; width: 100%; text-align: center; margin-top: 40px;">
 				<button id="btnSave">Save</button>
 				<span style="width: 100px;">&nbsp;</span>
 				<button id="btnReset">Reset to Defaults</button>
 			</div>
 		</div>
-		
+
 		<div style="width: 35em; margin: 0px auto; text-align: center; font-size: 12px; font-style: italic; font-family: 'Helvetica Neue', HelveticaNeue, Helvetica, Arial, sans-serif;">
 			MSPA Update Notifier <br/>
 			Version <span id="lblVersion"></span>
