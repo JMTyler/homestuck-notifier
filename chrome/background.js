@@ -1,40 +1,25 @@
 
-/*	TODO:
-	use jQuery Deferred objects for promises...
-	var promise = (function() {
-		var deferred = $.Deferred();
-		setTimeout(function() {
-			deferred.resolve({objects_processed: 3});
-		}, 5000);
-		return deferred.promise();
-	})();
-	promise.done(function(result) {
-		console.log('objects processed: ' + result.objects_processed);
-	});
-*/
-
 (function() {
-	var checkInterval = null,
-		intervalLength = null;
+	let checkInterval  = null;
+	let intervalLength = null;
 
-	var icons = {
-		idle: 'icons/16.png',
-		updates: 'icons/whatpumpkin.gif'
+	const icons = {
+		idle:    'icons/16.png',
+		updates: 'icons/whatpumpkin.gif',
 	};
 
-	var badgeColour = '#00AA00';
+	let badgeColour = '#00AA00';
 	if (jmtyler.settings.get('is_debug_mode')) {
 		badgeColour = '#BB0000';
 
-		chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
-		chrome.browserAction.setBadgeText({text: 'dbg'});
+		chrome.browserAction.setBadgeBackgroundColor({ color: badgeColour });
+		chrome.browserAction.setBadgeText({ text: 'dbg' });
 	}
 
-	var _main = function()
-	{
-		jmtyler.log('executing _main()');
+	const Main = () => {
+		jmtyler.log('executing Main()');
 
-		// var vapidKey = 'BB0WW0ANGE7CquFTQC0n68DmkVrInd616DEi3pI5Yq8IKHv0v9qhvzkAInBjEw2zNfgx29JB2DAQkV_81ztYpTg';
+		// const vapidKey = 'BB0WW0ANGE7CquFTQC0n68DmkVrInd616DEi3pI5Yq8IKHv0v9qhvzkAInBjEw2zNfgx29JB2DAQkV_81ztYpTg';
 		// chrome.gcm.register([ vapidKey ], (registrationId) => {
 		chrome.instanceID.getToken({ authorizedEntity: '710329635775', scope: 'GCM' }, (token) => {
 			console.log('registered with gcm', token || chrome.runtime.lastError.message);
@@ -49,9 +34,9 @@
 
 		intervalLength = jmtyler.settings.map('check_frequency').seconds * 1000;
 
-		var lastPageRead    = jmtyler.memory.get('last_page_read'),
-			latestUpdate    = jmtyler.memory.get('latest_update'),
-			doShowPageCount = jmtyler.settings.get('show_page_count');
+		let lastPageRead      = jmtyler.memory.get('last_page_read');
+		const latestUpdate    = jmtyler.memory.get('latest_update');
+		const doShowPageCount = jmtyler.settings.get('show_page_count');
 
 		if (lastPageRead == null) {
 			lastPageRead = "https://www.homestuck.com/story/1";  // Default to the first page of Homestuck
@@ -59,45 +44,45 @@
 		}
 
 		// After startup, make sure the browser action still looks as it should with context.
-		chrome.browserAction.setTitle({title: chrome.runtime.getManifest().name + '\n' + lastPageRead});
-		chrome.browserAction.setIcon({path: icons.idle});
+		chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n' + lastPageRead });
+		chrome.browserAction.setIcon({ path: icons.idle });
 		if (lastPageRead == latestUpdate) {
-			chrome.browserAction.setBadgeText({text: ''});
+			chrome.browserAction.setBadgeText({ text: '' });
 		} else if (latestUpdate !== false && doShowPageCount) {
 			// TODO: Should probably start storing the unread pages count so we don't have to do this.
-			var lastPageReadId = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
-			var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
-			var unreadPageCount = latestUpdatePageId - lastPageReadId;
+			const lastPageReadId     = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
+			const latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
+			const unreadPageCount    = latestUpdatePageId - lastPageReadId;
 
-			chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
-			chrome.browserAction.setBadgeText({text: unreadPageCount.toString()});
+			chrome.browserAction.setBadgeBackgroundColor({ color: badgeColour });
+			chrome.browserAction.setBadgeText({ text: unreadPageCount.toString() });
 		}
 
-		chrome.browserAction.onClicked.addListener(_gotoMspa);
+		chrome.browserAction.onClicked.addListener(GotoMspa);
 
-		chrome.extension.onRequest.addListener((request, sender, sendResponse) => {
+		chrome.extension.onRequest.addListener((request) => {
 			switch (request.method) {
 				case 'forceCheck':
 					jmtyler.memory.clear('http_last_modified');
 					jmtyler.memory.clear('latest_update');
-					_checkForUpdates();
+					CheckForUpdates();
 					break;
 			}
 		});
 
 		chrome.notifications.onClicked.addListener((id) => {
 			chrome.notifications.clear(id);
-			_gotoMspa();
+			GotoMspa();
 		});
 
 		const messageHandlers = {
 			freshPotato({ story, arc, endpoint, page }) {
 				// Show notification for new updates.
-				var iconUrl = jmtyler.settings.get('toast_icon_uri');
-				var title   = "Homestuck.com - " + story;
-				var message = "Update!! Click here to start reading!";
+				const iconUrl = jmtyler.settings.get('toast_icon_uri');
+				const title   = "Homestuck.com - " + story;
+				const message = "Update!! Click here to start reading!";
 
-				_playSound();
+				PlaySound();
 
 				chrome.notifications.create({ type: 'basic', title, message, iconUrl }, (id) => {
 					// TODO: This doesn't seem to have an effect.  The toast is clearing itself automatically.
@@ -107,99 +92,105 @@
 				});
 			},
 		};
+		// chrome.runtime.onMessage.addListener((message) => {
+		// 	if (message.method && message.args && messageHandlers[message.method]) {
+		// 		return messageHandlers[message.method](message.args);
+		// 	}
+		// });
 
 		chrome.contextMenus.create({
-			title: "Mark as my Last Read page",
+			title:               "Mark as my Last Read page",
 			documentUrlPatterns: ["https://www.homestuck.com/*"],
-			contexts: ['page', 'frame', 'link', 'image', 'video', 'audio']  // Pretty much as long as it is on the MSPA website.
+			contexts:            ['page', 'frame', 'link', 'image', 'video', 'audio'],  // Pretty much as long as it is on the MSPA website.
 		});
-		chrome.contextMenus.onClicked.addListener(function(info, tab) {
-			var pageUrl = info.pageUrl;
+		chrome.contextMenus.onClicked.addListener((info) => {
+			const pageUrl = info.pageUrl;
 			jmtyler.memory.set('last_page_read', pageUrl);
-			chrome.browserAction.setTitle({title: chrome.runtime.getManifest().name + '\n' + pageUrl});
+			chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n' + pageUrl });
 
-			var latestUpdate = jmtyler.memory.get('latest_update');
+			const latestUpdate = jmtyler.memory.get('latest_update');
 			if (latestUpdate !== false && doShowPageCount) {
-				var lastPageReadId = parseInt(pageUrl.substr(pageUrl.length - 6), 10);
-				var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
-				var unreadPageCount = latestUpdatePageId - lastPageReadId;
+				const lastPageReadId     = parseInt(pageUrl.substr(pageUrl.length - 6), 10);
+				const latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
+				const unreadPageCount    = latestUpdatePageId - lastPageReadId;
 
-				chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
-				chrome.browserAction.setBadgeText({text: unreadPageCount.toString()});
+				chrome.browserAction.setBadgeBackgroundColor({ color: badgeColour });
+				chrome.browserAction.setBadgeText({ text: unreadPageCount.toString() });
 			}
 			// Considered forcing a recheck after setting your new page, but decided there's no point.
 			// Leaving this here in case I change my mind, but I'll probably remove it after a few commits.
 			//jmtyler.memory.clear('http_last_modified');
 			//jmtyler.memory.clear('latest_update');
-			//_checkForUpdates();
+			//CheckForUpdates();
 		});
 
-		chrome.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
+		chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
 			if (typeof changeInfo.url == "undefined") {
 				return;
 			}
 
-			var currentPageUrl = changeInfo.url;
+			const currentPageUrl = changeInfo.url;
 
 			// This listener isn't triggered AFTER a regex filter like the context menu, so must do it ourselves.
-			var currentPage = currentPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
+			const currentPage = currentPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
 			if (currentPage === null) {
 				// This is not an MSPA comic page, so we don't care about it.
 				return;
 			}
 
-			var savedPageUrl = jmtyler.memory.get('last_page_read');
-			var savedPage = savedPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
+			const savedPageUrl = jmtyler.memory.get('last_page_read');
+			const savedPage    = savedPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
 
 			// Strip the page IDs off this page's URL and our saved page's URL, then compare them.
-			var currentStory = currentPage[1];
-			var currentPageId = parseInt(currentPage[3] || '1', 10);
-			var savedStory = savedPage[1];
-			var savedPageId = parseInt(savedPage[3] || '1', 10);
+			const currentStory  = currentPage[1];
+			const currentPageId = parseInt(currentPage[3] || '1', 10);
+			const savedStory    = savedPage[1];
+			const savedPageId   = parseInt(savedPage[3] || '1', 10);
+
 			if (currentStory === savedStory && currentPageId > savedPageId) {
 				// This page is LATER than the last page we've read, so this is the new one!
 				jmtyler.memory.set('last_page_read', currentPageUrl);
-				chrome.browserAction.setTitle({title: chrome.runtime.getManifest().name + '\n' + currentPageUrl});
-				chrome.browserAction.setIcon({path: icons.idle});
+				chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n' + currentPageUrl });
+				chrome.browserAction.setIcon({ path: icons.idle });
 
-				var latestUpdate = jmtyler.memory.get('latest_update');
+				const latestUpdate = jmtyler.memory.get('latest_update');
 				if (latestUpdate !== false && doShowPageCount) {
-					var latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
-					var unreadPageCount = latestUpdatePageId - currentPageId;
-					chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
-					chrome.browserAction.setBadgeText({text: unreadPageCount.toString()});
+					const latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
+					const unreadPageCount    = latestUpdatePageId - currentPageId;
+
+					chrome.browserAction.setBadgeBackgroundColor({ color: badgeColour });
+					chrome.browserAction.setBadgeText({ text: unreadPageCount.toString() });
 				}
 			}
 		});
 
 		// Make some key functions globally accessible for debug mode.
 		if (jmtyler.settings.get('is_debug_mode')) {
-			window.gotoMspa = function(){ _gotoMspa(); };
-			window.checkForUpdates = function(){ _checkForUpdates(); };
-			window.playSound = function(){ _playSound(); };
-			window.clearData = function(){ _clearData(); };
+			window.GotoMspa        = () => GotoMspa();
+			window.CheckForUpdates = () => CheckForUpdates();
+			window.PlaySound       = () => PlaySound();
+			window.ClearData       = () => ClearData();
 
 			return;  // Don't want the interval running during debug mode.
 		}
 
 		// Kick it all off!
-		checkInterval = setInterval(_checkForUpdates, intervalLength);
-		_checkForUpdates();
+		checkInterval = setInterval(CheckForUpdates, intervalLength);
+		CheckForUpdates();
 	};
 
 	/**
 	 * Set button icon as idle, open a new tab with the last page read,
 	 * and set the new 'last page read' as the latest update available.
 	 */
-	var _gotoMspa = function()
-	{
+	const GotoMspa = () => {
 		try {
-			var latestUpdate = jmtyler.memory.get('latest_update'),
-				lastPageRead = jmtyler.memory.get('last_page_read') || "https://www.homestuck.com";
+			const latestUpdate = jmtyler.memory.get('latest_update');
+			const lastPageRead = jmtyler.memory.get('last_page_read') || "https://www.homestuck.com";
 
-			jmtyler.log('executing _gotoMspa()', latestUpdate, lastPageRead);
+			jmtyler.log('executing GotoMspa()', latestUpdate, lastPageRead);
 
-			chrome.tabs.create({url: lastPageRead});
+			chrome.tabs.create({ url: lastPageRead });
 		} catch (e) {
 			jmtyler.log('failed to open new tab for MSPA', e);
 		}
@@ -212,13 +203,12 @@
 	 * or if there are new updates available.  If there are updates, adds a count
 	 * onto the button.
 	 */
-	var _checkForUpdates = function()
-	{
-		jmtyler.log('executing _checkForUpdates()');
+	const CheckForUpdates = () => {
+		jmtyler.log('executing CheckForUpdates()');
 
-		var areNotificationsOn = jmtyler.settings.get('notifications_on'),
-			doShowPageCount    = jmtyler.settings.get('show_page_count'),
-			newIntervalLength  = jmtyler.settings.map('check_frequency').seconds * 1000;
+		const areNotificationsOn = jmtyler.settings.get('notifications_on');
+		const doShowPageCount    = jmtyler.settings.get('show_page_count');
+		const newIntervalLength  = jmtyler.settings.map('check_frequency').seconds * 1000;
 
 		// Interval length setting has been changed, so set a new interval.
 		// TODO: Changes to interval length should take effect immediately.
@@ -227,21 +217,20 @@
 			if (checkInterval != null) {
 				clearInterval(checkInterval);
 			}
-			checkInterval = setInterval(_checkForUpdates, intervalLength);
+			checkInterval = setInterval(CheckForUpdates, intervalLength);
 		}
 
-		var lastPageRead = jmtyler.memory.get('last_page_read'),
-			latestUpdate = jmtyler.memory.get('latest_update');
+		const lastPageRead = jmtyler.memory.get('last_page_read');
+		const latestUpdate = jmtyler.memory.get('latest_update');
 
 		// TODO: All the following XHR crap is incredibly grotesque... put some time into encapsulating & simplifying it.
 
-		var feedUri = "http://mspaintadventures.com/rss/rss.xml",
-			pingRequest = new XMLHttpRequest();
+		const feedUri = "http://mspaintadventures.com/rss/rss.xml";
 
-		pingRequest.onload = function()
-		{
-			var myLastModified    = jmtyler.memory.get('http_last_modified'),
-				theirLastModified = pingRequest.getResponseHeader('Last-Modified');
+		const pingRequest = new XMLHttpRequest();
+		pingRequest.onload = () => {
+			const myLastModified    = jmtyler.memory.get('http_last_modified');
+			const theirLastModified = pingRequest.getResponseHeader('Last-Modified');
 
 			jmtyler.log('completed ping request', lastPageRead, latestUpdate, myLastModified, theirLastModified);
 
@@ -252,24 +241,21 @@
 
 			jmtyler.memory.set('http_last_modified', theirLastModified);
 
-			var contentRequest = new XMLHttpRequest();
-			contentRequest.onload = function()
-			{
+			const contentRequest = new XMLHttpRequest();
+			contentRequest.onload = () => {
 				jmtyler.log('completed content request', contentRequest.responseXML);
 
-				var xml = contentRequest.responseXML;
+				const xml = contentRequest.responseXML;
 				if (!xml) {
 					console.log('invalid rss feed received.');
 					return;
 				}
 
-				var pages = xml.getElementsByTagName('item');
-				var count = Math.min(pages.length, 40);
-				var unreadPagesCount = 0;
+				const pages = xml.getElementsByTagName('item');
+				const item  = pages.item(0);
+				const guid  = item.getElementsByTagName('guid')[0];
 
-				var item = pages.item(0);
-				var guid = item.getElementsByTagName('guid')[0];
-				var newLatestUpdate = guid ? guid.textContent : null;
+				const newLatestUpdate = guid ? guid.textContent : null;
 
 				if (newLatestUpdate === null) {
 					console.log('could not find guid on first rss item');
@@ -281,53 +267,52 @@
 					return;
 				}
 
-				var lastPageReadId = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
-				var latestUpdatePageId = parseInt(newLatestUpdate.substr(newLatestUpdate.length - 6), 10);
-				var unreadPagesCount = latestUpdatePageId - lastPageReadId;
+				const lastPageReadId     = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
+				const latestUpdatePageId = parseInt(newLatestUpdate.substr(newLatestUpdate.length - 6), 10);
+				const unreadPagesCount   = latestUpdatePageId - lastPageReadId;
 				if (unreadPagesCount < 1) {
-					chrome.browserAction.setIcon({path: icons.idle});
-					chrome.browserAction.setBadgeText({text: ''});
+					chrome.browserAction.setIcon({ path: icons.idle });
+					chrome.browserAction.setBadgeText({ text: '' });
 					return;
 				}
 
-				var unreadPagesText = unreadPagesCount.toString();
+				const unreadPagesText = unreadPagesCount.toString();
 
 				// Update button for new updates.
 				if (latestUpdate !== false) {
-					chrome.browserAction.setIcon({path: icons.updates});
+					chrome.browserAction.setIcon({ path: icons.updates });
 				}
 				if (doShowPageCount) {
-					chrome.browserAction.setBadgeBackgroundColor({color: badgeColour});
-					chrome.browserAction.setBadgeText({text: unreadPagesText});
+					chrome.browserAction.setBadgeBackgroundColor({ color: badgeColour });
+					chrome.browserAction.setBadgeText({ text: unreadPagesText });
 				}
 				jmtyler.memory.set('latest_update', newLatestUpdate);
 
 				if (areNotificationsOn) {
 					// Show notification for new updates.
-					var toastIcon    = jmtyler.settings.get('toast_icon_uri'),
-						toastTitle   = "New MSPA Update!",
-						toastMessage = "Click here to start reading!" + (doShowPageCount ? ("\n" + unreadPagesText + " new pages") : "");
+					const toastIcon    = jmtyler.settings.get('toast_icon_uri');
+					const toastTitle   = "New MSPA Update!";
+					const toastMessage = "Click here to start reading!" + (doShowPageCount ? ("\n" + unreadPagesText + " new pages") : "");
 
-					_playSound();
+					PlaySound();
 
-					var notification = new Notification(toastTitle, {
+					const notification = new Notification(toastTitle, {
 						icon: toastIcon,
-						body: toastMessage
+						body: toastMessage,
 					});
 					notification.onclick = function()
 					{
 						this.close();
-						_gotoMspa();
+						GotoMspa();
 					};
 
-					setTimeout(function() {
+					setTimeout(() => {
 						notification.close();
 					}, 10000);
 				}
 			};
 
-			contentRequest.onerror = function()
-			{
+			contentRequest.onerror = () => {
 				// TODO: Seriously have to improve my error reporting.
 				console.log('something went wrong, brotha.');
 				return;
@@ -342,8 +327,7 @@
 			return;
 		};
 
-		pingRequest.onerror = function()
-		{
+		pingRequest.onerror = () => {
 			console.log('something went wrong, brotha.');
 			return;
 		};
@@ -357,15 +341,14 @@
 		return;
 	};
 
-	var _playSound = function()
-	{
-		var toastSoundUri = jmtyler.settings.get('toast_sound_uri');
+	const PlaySound = () => {
+		const toastSoundUri = jmtyler.settings.get('toast_sound_uri');
 		if (toastSoundUri == null) {
 			return;
 		}
 
 		// Get the existing <audio /> element from the page, if one's already been created ...
-		var audio = document.getElementsByTagName('audio');
+		let audio = document.getElementsByTagName('audio');
 		if (audio.length > 0) {
 			audio = audio[0];
 		} else {
@@ -381,25 +364,24 @@
 		audio.src = toastSoundUri;
 	};
 
-	var _clearData = function()
-	{
+	const ClearData = () => {
 		jmtyler.settings.clear();
 		jmtyler.memory.clear();
-		chrome.browserAction.setIcon({path: icons.idle});
-		chrome.browserAction.setBadgeText({text: ''});
+		chrome.browserAction.setIcon({ path: icons.idle });
+		chrome.browserAction.setBadgeText({ text: '' });
 	};
 
-	var _currentVersion = chrome.runtime.getManifest().version;
+	const currentVersion = chrome.runtime.getManifest().version;
 
-	chrome.runtime.onInstalled.addListener(function(details) {
-		jmtyler.log('executing onInstalled()', _currentVersion, details);
-		if (_currentVersion == details.previousVersion) {
+	chrome.runtime.onInstalled.addListener((details) => {
+		jmtyler.log('executing onInstalled()', currentVersion, details);
+		if (currentVersion == details.previousVersion) {
 			jmtyler.log('  new version is same as old version... aborting');
 			return;
 		}
 
 		// If the latest version has already been fully installed, don't do anything. (Not sure how we got here, though.)
-		if (jmtyler.version.isInstalled(_currentVersion)) {
+		if (jmtyler.version.isInstalled(currentVersion)) {
 			jmtyler.log('  new version has already been installed... aborting');
 			return;
 		}
@@ -407,25 +389,25 @@
 		// Install the latest version, performing any necessary migrations.
 		if (details.reason == "install") {
 			jmtyler.log('  extension is newly installed');
-			jmtyler.version.install(_currentVersion);
+			jmtyler.version.install(currentVersion);
 		} else if (details.reason == "update" || details.reason == "chrome_update") {
 			jmtyler.log('  extension is being updated');
-			jmtyler.version.update(details.previousVersion, _currentVersion);
+			jmtyler.version.update(details.previousVersion, currentVersion);
 		} else {
 			jmtyler.log('  extension is in some unhandled state... [' + details.reason + ']');
 		}
 
-		jmtyler.log('  done migration, ready to run _main()');
+		jmtyler.log('  done migration, ready to run Main()');
 
 		// Now that we've finished any migrations, we can run the main process.
-		_main();
+		Main();
 	});
 
-	jmtyler.log('checking if current version has been installed...' + (jmtyler.version.isInstalled(_currentVersion) ? 'yes' : 'no'));
+	jmtyler.log('checking if current version has been installed...' + (jmtyler.version.isInstalled(currentVersion) ? 'yes' : 'no'));
 
 	// Only run the main process immediately if the latest version has already been fully installed.
-	if (jmtyler.version.isInstalled(_currentVersion)) {
-		jmtyler.log('current version is installed, running _main() immediately');
-		_main();
+	if (jmtyler.version.isInstalled(currentVersion)) {
+		jmtyler.log('current version is installed, running Main() immediately');
+		Main();
 	}
 })();
