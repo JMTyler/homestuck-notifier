@@ -59,7 +59,7 @@
 		}
 
 		// After startup, make sure the browser action still looks as it should with context.
-		chrome.browserAction.setTitle({title: lastPageRead});
+		chrome.browserAction.setTitle({title: chrome.runtime.getManifest().name + '\n' + lastPageRead});
 		chrome.browserAction.setIcon({path: icons.idle});
 		if (lastPageRead == latestUpdate) {
 			chrome.browserAction.setBadgeText({text: ''});
@@ -118,7 +118,7 @@
 		chrome.contextMenus.onClicked.addListener(function(info, tab) {
 			var pageUrl = info.pageUrl;
 			jmtyler.memory.set('last_page_read', pageUrl);
-			chrome.browserAction.setTitle({title: pageUrl});
+			chrome.browserAction.setTitle({title: chrome.runtime.getManifest().name + '\n' + pageUrl});
 
 			var latestUpdate = jmtyler.memory.get('latest_update');
 			if (latestUpdate !== false && doShowPageCount) {
@@ -161,7 +161,7 @@
 			if (currentStory === savedStory && currentPageId > savedPageId) {
 				// This page is LATER than the last page we've read, so this is the new one!
 				jmtyler.memory.set('last_page_read', currentPageUrl);
-				chrome.browserAction.setTitle({title: currentPageUrl});
+				chrome.browserAction.setTitle({title: chrome.runtime.getManifest().name + '\n' + currentPageUrl});
 				chrome.browserAction.setIcon({path: icons.idle});
 
 				var latestUpdate = jmtyler.memory.get('latest_update');
