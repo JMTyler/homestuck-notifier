@@ -6,15 +6,15 @@ var jmtyler = jmtyler || {};
 jmtyler.settings = (function()
 {
 	var _settings = null;
-	
+
 	var _defaults = {
 		'notifications_on' : true,
 		'show_page_count'  : true,
 		'check_frequency'  : 3,
-		'toast_icon_uri'   : '48.png',
+		'toast_icon_uri'   : 'icons/48.png',
 		'is_debug_mode'    : false
 	};
-	
+
 	var _maps = {
 		'check_frequency': {
 			1:  {
@@ -59,44 +59,44 @@ jmtyler.settings = (function()
 			}
 		}
 	};
-	
+
 	var _load = function()
 	{
 		_settings = {};
 		if (typeof(localStorage['options']) != 'undefined') {
 			_settings = JSON.parse(localStorage['options']);
 		}
-		
+
 		for (var key in _defaults) {
 			if (!_defaults.hasOwnProperty(key)) {
 				continue;
 			}
-			
+
 			if (typeof(_settings[key]) == 'undefined') {
 				_settings[key] = _defaults[key];
 			}
 		}
 	};
-	
+
 	var _save = function()
 	{
 		if (_settings === null) {
 			// Nothing to save!
 			return;
 		}
-		
+
 		localStorage['options'] = JSON.stringify(_settings);
 	};
-	
+
 	return {
 		get: function(key)
 		{
 			_load();
-			
+
 			if (typeof(key) == 'undefined') {
 				return _settings;
 			}
-			
+
 			if (typeof(_settings[key]) == 'undefined') {
 				return null;
 			}
@@ -104,7 +104,7 @@ jmtyler.settings = (function()
 			if (key === 'show_page_count') {
 				return false;
 			}
-			
+
 			return _settings[key];
 		},
 		set: function(key, value)
@@ -112,7 +112,7 @@ jmtyler.settings = (function()
 			_load();
 			_settings[key] = value;
 			_save();
-			
+
 			return this;
 		},
 		clear: function(key)
@@ -122,11 +122,11 @@ jmtyler.settings = (function()
 				_save();
 				return this;
 			}
-			
+
 			_load();
 			delete _settings[key];
 			_save();
-			
+
 			return this;
 		},
 		map: function(key, value)
@@ -134,15 +134,15 @@ jmtyler.settings = (function()
 			if (typeof(_maps[key]) == 'undefined') {
 				return null;
 			}
-			
+
 			if (typeof(value) == 'undefined' || value === null) {
 				value = this.get(key);
 			}
-			
+
 			if (typeof(_maps[key][value]) == 'undefined') {
 				return null;
 			}
-			
+
 			return _maps[key][value];
 		}
 	};

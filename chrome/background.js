@@ -18,8 +18,8 @@
 		intervalLength = null;
 
 	var icons = {
-		idle: 'mspa_face.gif',
-		updates: 'whatpumpkin.gif'
+		idle: 'icons/16.png',
+		updates: 'icons/whatpumpkin.gif'
 	};
 
 	var badgeColour = '#00AA00';

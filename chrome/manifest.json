@@ -3,11 +3,11 @@
 	"description": "Homestuck Notifier keeps track of your spot on Homestuck.com and notifies you of new updates.",
 	"version": "1.4.2",
 	"icons": {
-		"16": "mspa_face-16.png",
-		"48": "48.png"
+		"16": "icons/16.png",
+		"48": "icons/48.png"
 	},
 	"browser_action": {
-		"default_icon": "mspa_face.gif"
+		"default_icon": "icons/16.png"
 	},
 	"background": {
 		"scripts": [
@@ -27,6 +27,6 @@
 		"https://www.homestuck.com/*",
 		"gcm"
 	],
-	"web_accessible_resources": ["48.png"],
+	"web_accessible_resources": ["icons/48.png"],
 	"manifest_version": 2
 }
