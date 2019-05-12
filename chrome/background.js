@@ -4,16 +4,48 @@ const icons = {
 	updates: 'icons/whatpumpkin.gif',
 };
 
-let badgeColour = '#00AA00';
-if (jmtyler.settings.get('is_debug_mode')) {
-	badgeColour = '#BB0000';
-
-	chrome.browserAction.setBadgeBackgroundColor({ color: badgeColour });
-	chrome.browserAction.setBadgeText({ text: 'dbg' });
-}
+/* Main */
 
 const Main = () => {
 	jmtyler.log('executing Main()');
+
+	chrome.browserAction.setBadgeBackgroundColor({ color: '#00AA00' });
+	if (jmtyler.settings.get('is_debug_mode')) {
+		chrome.browserAction.setBadgeText({ text: 'dbg' });
+		chrome.browserAction.setBadgeBackgroundColor({ color: '#BB0000' });
+
+		// Make some key functions globally accessible for debug mode.
+		window.LaunchTab = () => LaunchTab();
+		window.PlaySound = () => PlaySound();
+		window.ClearData = () => ClearData();
+	}
+
+	const lastPageRead    = jmtyler.memory.get('last_page_read');
+	const latestUpdate    = jmtyler.memory.get('latest_update');
+	const doShowPageCount = jmtyler.settings.get('show_page_count');
+
+	// After startup, make sure the browser action still looks as it should with context.
+	SetStatus('idle', lastPageRead);
+	if (lastPageRead == latestUpdate) {
+		SetBadge('');
+	} else if (latestUpdate !== false && doShowPageCount) {
+		SetBadge(CalculateRemainingPages(lastPageRead, latestUpdate));
+	}
+
+	chrome.contextMenus.create({
+		title:               "Mark as my Last Read page",
+		documentUrlPatterns: ["https://www.homestuck.com/*"],
+		contexts:            ['page', 'frame', 'link', 'image', 'video', 'audio'],  // Pretty much as long as it is on the MSPA website.
+	});
+
+	chrome.contextMenus.onClicked.addListener(OnOverrideLastPageRead);
+	chrome.tabs.onUpdated.addListener(OnPageVisit);
+	chrome.browserAction.onClicked.addListener(LaunchTab);
+	chrome.notifications.onClicked.addListener((id) => {
+		chrome.notifications.clear(id);
+		LaunchTab();
+	});
+	chrome.runtime.onMessage.addListener(({ method, args = {} }) => (OnMessage[method] ? OnMessage[method](args) : OnMessage.Unknown()));
 
 	// const vapidKey = 'BB0WW0ANGE7CquFTQC0n68DmkVrInd616DEi3pI5Yq8IKHv0v9qhvzkAInBjEw2zNfgx29JB2DAQkV_81ztYpTg';
 	// chrome.gcm.register([ vapidKey ], (registrationId) => {
@@ -24,130 +56,57 @@ const Main = () => {
 		// TODO: For some features, we must specify a lowest supported Chrome version.  Will that allow us to use ES6 features too?
 		chrome.gcm.onMessage.addListener(({ data }) => {
 			console.log('received gcm message', data);
-			messageHandlers.freshPotato(data);
+			OnMessage.Potato(data);
 		});
 	});
+};
 
-	let lastPageRead      = jmtyler.memory.get('last_page_read');
-	const latestUpdate    = jmtyler.memory.get('latest_update');
-	const doShowPageCount = jmtyler.settings.get('show_page_count');
+/* Event Handlers */
 
-	if (lastPageRead == null) {
-		lastPageRead = "https://www.homestuck.com/story/1";  // Default to the first page of Homestuck
-		jmtyler.memory.set('last_page_read', lastPageRead);
+const OnMessage = {
+	Potato({ story, arc, endpoint, page }) {
+		// TODO: Probably don't want to distract the user if this potato isn't new *for them* (though it should be new for everyone now).
+		ShowToast(story, arc, endpoint, page);
+		PlaySound();
+	},
+	Unknown() {
+		jmtyler.log('An unknown Runtime Message was received and therefore could not be processed.');
+	},
+};
+
+const OnOverrideLastPageRead = ({ pageUrl }) => {
+	// TODO: We should check which menu item was clicked.  We'll probably end up with more menu items soon.
+	MarkPage(pageUrl);
+};
+
+const OnPageVisit = (_tabId, { url: currentPageUrl }) => {
+	if (!currentPageUrl) {
+		return;
 	}
 
-	// After startup, make sure the browser action still looks as it should with context.
-	chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n' + lastPageRead });
-	chrome.browserAction.setIcon({ path: icons.idle });
-	if (lastPageRead == latestUpdate) {
-		chrome.browserAction.setBadgeText({ text: '' });
-	} else if (latestUpdate !== false && doShowPageCount) {
-		// TODO: Should probably start storing the unread pages count so we don't have to do this.
-		const lastPageReadId     = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
-		const latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
-		const unreadPageCount    = latestUpdatePageId - lastPageReadId;
-
-		chrome.browserAction.setBadgeBackgroundColor({ color: badgeColour });
-		chrome.browserAction.setBadgeText({ text: unreadPageCount.toString() });
+	// This listener isn't triggered AFTER a regex filter like the context menu, so must do it ourselves.
+	const currentPage = currentPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
+	if (currentPage === null) {
+		// This is not an MSPA comic page, so we don't care about it.
+		return;
 	}
 
-	chrome.browserAction.onClicked.addListener(GotoMspa);
+	// TODO: We're on Homestuck.com, but it may not be a comic page.  Filter URL through our list of Story Arc endpoints.
 
-	chrome.notifications.onClicked.addListener((id) => {
-		chrome.notifications.clear(id);
-		GotoMspa();
-	});
+	const savedPageUrl = jmtyler.memory.get('last_page_read');
+	const savedPage    = savedPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
 
-	const messageHandlers = {
-		freshPotato({ story, arc, endpoint, page }) {
-			// Show notification for new updates.
-			const iconUrl = jmtyler.settings.get('toast_icon_uri');
-			const title   = "Homestuck.com - " + story;
-			const message = "Update!! Click here to start reading!";
+	// Strip the page IDs off this page's URL and our saved page's URL, then compare them.
+	const currentStory  = currentPage[1];
+	const currentPageId = parseInt(currentPage[3] || '1', 10);
+	const savedStory    = savedPage[1];
+	const savedPageId   = parseInt(savedPage[3] || '1', 10);
 
-			PlaySound();
-
-			chrome.notifications.create({ type: 'basic', title, message, iconUrl }, (id) => {
-				// TODO: This doesn't seem to have an effect.  The toast is clearing itself automatically.
-				setTimeout(() => chrome.notifications.clear(id), 10000);
-			});
-		},
-	};
-	// chrome.runtime.onMessage.addListener((message) => {
-	// 	if (message.method && message.args && messageHandlers[message.method]) {
-	// 		return messageHandlers[message.method](message.args);
-	// 	}
-	// });
-
-	chrome.contextMenus.create({
-		title:               "Mark as my Last Read page",
-		documentUrlPatterns: ["https://www.homestuck.com/*"],
-		contexts:            ['page', 'frame', 'link', 'image', 'video', 'audio'],  // Pretty much as long as it is on the MSPA website.
-	});
-	chrome.contextMenus.onClicked.addListener((info) => {
-		const pageUrl = info.pageUrl;
-		jmtyler.memory.set('last_page_read', pageUrl);
-		chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n' + pageUrl });
-
-		const latestUpdate = jmtyler.memory.get('latest_update');
-		if (latestUpdate !== false && doShowPageCount) {
-			const lastPageReadId     = parseInt(pageUrl.substr(pageUrl.length - 6), 10);
-			const latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
-			const unreadPageCount    = latestUpdatePageId - lastPageReadId;
-
-			chrome.browserAction.setBadgeBackgroundColor({ color: badgeColour });
-			chrome.browserAction.setBadgeText({ text: unreadPageCount.toString() });
-		}
-	});
-
-	chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
-		if (typeof changeInfo.url == "undefined") {
-			return;
-		}
-
-		const currentPageUrl = changeInfo.url;
-
-		// This listener isn't triggered AFTER a regex filter like the context menu, so must do it ourselves.
-		const currentPage = currentPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
-		if (currentPage === null) {
-			// This is not an MSPA comic page, so we don't care about it.
-			return;
-		}
-
-		const savedPageUrl = jmtyler.memory.get('last_page_read');
-		const savedPage    = savedPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
-
-		// Strip the page IDs off this page's URL and our saved page's URL, then compare them.
-		const currentStory  = currentPage[1];
-		const currentPageId = parseInt(currentPage[3] || '1', 10);
-		const savedStory    = savedPage[1];
-		const savedPageId   = parseInt(savedPage[3] || '1', 10);
-
-		if (currentStory === savedStory && currentPageId > savedPageId) {
-			// This page is LATER than the last page we've read, so this is the new one!
-			jmtyler.memory.set('last_page_read', currentPageUrl);
-			chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n' + currentPageUrl });
-			chrome.browserAction.setIcon({ path: icons.idle });
-
-			const latestUpdate = jmtyler.memory.get('latest_update');
-			if (latestUpdate !== false && doShowPageCount) {
-				const latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
-				const unreadPageCount    = latestUpdatePageId - currentPageId;
-
-				chrome.browserAction.setBadgeBackgroundColor({ color: badgeColour });
-				chrome.browserAction.setBadgeText({ text: unreadPageCount.toString() });
-			}
-		}
-	});
-
-	// Make some key functions globally accessible for debug mode.
-	if (jmtyler.settings.get('is_debug_mode')) {
-		window.GotoMspa        = () => GotoMspa();
-		window.PlaySound       = () => PlaySound();
-		window.ClearData       = () => ClearData();
-
-		return;  // Don't want the interval running during debug mode.
+	// TODO: We should update every Story's last read page anyway, whether it's my active Story or not.
+	if (currentStory === savedStory && currentPageId > savedPageId) {
+		// This page is LATER than the last page we've read, so this is the new one!
+		// TODO: This is actually broken now, since CalculateRemainingPages expects an MSPA URL.
+		MarkPage(currentPageUrl);
 	}
 };
 
@@ -155,12 +114,12 @@ const Main = () => {
  * Set button icon as idle, open a new tab with the last page read,
  * and set the new 'last page read' as the latest update available.
  */
-const GotoMspa = () => {
+const LaunchTab = () => {
 	try {
 		const latestUpdate = jmtyler.memory.get('latest_update');
 		const lastPageRead = jmtyler.memory.get('last_page_read') || "https://www.homestuck.com";
 
-		jmtyler.log('executing GotoMspa()', latestUpdate, lastPageRead);
+		jmtyler.log('executing LaunchTab()', latestUpdate, lastPageRead);
 
 		chrome.tabs.create({ url: lastPageRead });
 	} catch (e) {
@@ -168,6 +127,19 @@ const GotoMspa = () => {
 	}
 
 	return;
+};
+
+/* Core Functions */
+
+const MarkPage = (url) => {
+	// TODO: This should take more info than just URL, and update everything.
+	jmtyler.memory.set('last_page_read', url);
+	SetStatus('idle', url);
+
+	const latestUpdate = jmtyler.memory.get('latest_update');
+	if (latestUpdate !== false && doShowPageCount) {
+		SetBadge(CalculateRemainingPages(url, latestUpdate));
+	}
 };
 
 const PlaySound = () => {
@@ -193,18 +165,51 @@ const PlaySound = () => {
 	audio.src = toastSoundUri;
 };
 
+const ShowToast = (story, arc, endpoint, page) => {
+	// Show notification for new updates.
+	const iconUrl = jmtyler.settings.get('toast_icon_uri');
+	const title   = "Homestuck.com - " + story;
+	const message = "Update!! Click here to start reading!";
+
+	chrome.notifications.create({ type: 'basic', title, message, iconUrl }, (id) => {
+		// TODO: This doesn't seem to have an effect.  The toast is clearing itself automatically.
+		setTimeout(() => chrome.notifications.clear(id), 10000);
+	});
+};
+
+/* Helpers */
+
+const SetStatus = (iconKey, lastPageRead = null) => {
+	chrome.browserAction.setIcon({ path: icons[iconKey] });
+	if (iconKey !== null) {
+		chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n' + lastPageRead });
+	}
+};
+
+const SetBadge = (text) => {
+	chrome.browserAction.setBadgeText({ text: text.toString() });
+};
+
+const CalculateRemainingPages = (lastPageRead, latestUpdate) => {
+	// TODO: Should probably start storing the unread pages count so we don't have to do this.
+	const lastPageReadId     = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
+	const latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
+	const unreadPageCount    = latestUpdatePageId - lastPageReadId;
+	return unreadPageCount;
+};
+
 const ClearData = () => {
 	jmtyler.settings.clear();
 	jmtyler.memory.clear();
-	chrome.browserAction.setIcon({ path: icons.idle });
-	chrome.browserAction.setBadgeText({ text: '' });
+	SetStatus('idle');
+	SetBadge('');
 };
 
-const currentVersion = chrome.runtime.getManifest().version;
+chrome.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
+	const currentVersion = chrome.runtime.getManifest().version;
+	jmtyler.log('executing onInstalled()', { currentVersion, previousVersion, reason });
 
-chrome.runtime.onInstalled.addListener((details) => {
-	jmtyler.log('executing onInstalled()', currentVersion, details);
-	if (currentVersion == details.previousVersion) {
+	if (currentVersion == previousVersion) {
 		jmtyler.log('  new version is same as old version... aborting');
 		return;
 	}
@@ -216,14 +221,19 @@ chrome.runtime.onInstalled.addListener((details) => {
 	}
 
 	// Install the latest version, performing any necessary migrations.
-	if (details.reason == "install") {
-		jmtyler.log('  extension is newly installed');
-		jmtyler.version.install(currentVersion);
-	} else if (details.reason == "update" || details.reason == "chrome_update") {
-		jmtyler.log('  extension is being updated');
-		jmtyler.version.update(details.previousVersion, currentVersion);
-	} else {
-		jmtyler.log('  extension is in some unhandled state... [' + details.reason + ']');
+	switch (reason) {
+		case 'install':
+			jmtyler.log('  extension is newly installed');
+			jmtyler.version.install(currentVersion);
+			break;
+		case 'update':
+		case 'chrome_update':
+			jmtyler.log('  extension is being updated');
+			jmtyler.version.update(previousVersion, currentVersion);
+			break;
+		default:
+			jmtyler.log('  extension is in some unhandled state... [' + reason + ']');
+			break;
 	}
 
 	jmtyler.log('  done migration, ready to run Main()');
@@ -232,10 +242,11 @@ chrome.runtime.onInstalled.addListener((details) => {
 	Main();
 });
 
-jmtyler.log('checking if current version has been installed...' + (jmtyler.version.isInstalled(currentVersion) ? 'yes' : 'no'));
-
-// Only run the main process immediately if the latest version has already been fully installed.
-if (jmtyler.version.isInstalled(currentVersion)) {
+const version = chrome.runtime.getManifest().version;
+const isInstalled = jmtyler.version.isInstalled(version);
+jmtyler.log('checking if current version has been installed...' + (isInstalled ? 'yes' : 'no'));
+if (isInstalled) {
+	// Only run the main process immediately if the latest version has already been fully installed.
 	jmtyler.log('current version is installed, running Main() immediately');
 	Main();
 }
