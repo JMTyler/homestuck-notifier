@@ -1,7 +1,7 @@
 
 const icons = {
 	idle:    'icons/16.png',
-	updates: 'icons/whatpumpkin.gif',
+	updates: 'icons/16.png',
 };
 
 /* Main */
@@ -11,6 +11,7 @@ const Main = () => {
 
 	chrome.browserAction.setBadgeBackgroundColor({ color: '#00AA00' });
 	if (jmtyler.settings.get('is_debug_mode')) {
+		// TODO: Use red 2B house for icon during debug mode, instead of green 2A house.
 		chrome.browserAction.setBadgeText({ text: 'dbg' });
 		chrome.browserAction.setBadgeBackgroundColor({ color: '#BB0000' });
 
@@ -45,15 +46,20 @@ const Main = () => {
 		chrome.notifications.clear(id);
 		LaunchTab();
 	});
+	// TODO: Probably just switch this out for an event emitter or something.
 	chrome.runtime.onMessage.addListener(({ method, args = {} }) => (OnMessage[method] ? OnMessage[method](args) : OnMessage.Unknown()));
 
 	// const vapidKey = 'BB0WW0ANGE7CquFTQC0n68DmkVrInd616DEi3pI5Yq8IKHv0v9qhvzkAInBjEw2zNfgx29JB2DAQkV_81ztYpTg';
 	// chrome.gcm.register([ vapidKey ], (registrationId) => {
+	// TODO: Debug mode should hook into a separate FCM account purely for testing.
 	chrome.instanceID.getToken({ authorizedEntity: '710329635775', scope: 'GCM' }, (token) => {
+		// TODO: Need to send token to API to subscribe to the potato FCM topic.
+		// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
 		console.log('registered with gcm', token || chrome.runtime.lastError.message);
 
 		// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
 		// TODO: For some features, we must specify a lowest supported Chrome version.  Will that allow us to use ES6 features too?
+		// TODO: What happens if we were offline during a ping?  Does it arrive later?  Do we have to fetch explicitly?
 		chrome.gcm.onMessage.addListener(({ data }) => {
 			console.log('received gcm message', data);
 			OnMessage.Potato(data);
