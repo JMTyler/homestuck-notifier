@@ -5,8 +5,8 @@ jmtyler.memory = (function()
 	var _memory = null;
 
 	var _defaults = {
-		'latest_update': false,
-		'last_page_read': 'https://www.homestuck.com/story/1',
+		'active':  null,
+		'stories': {},
 	};
 
 	var _load = function()

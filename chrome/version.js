@@ -40,18 +40,28 @@ jmtyler.version = (() => {
 
 		addUpdate({
 			from: '1.4.2',
-			to:   '1.5.0',
+			to:   '2.0.0',
 			with: () => {
-				// TODO: Delete `check_frequency` setting.
 				const lastPageRead = jmtyler.memory.get('last_page_read');
-				const matches = lastPageRead.match(/^http:\/\/www\.mspaintadventures\.com\/?.*\?s=6&p=(\d+)/);
-				if (matches === null) {
-					return;
+				const matches = lastPageRead ? lastPageRead.match(/^http:\/\/www\.mspaintadventures\.com\/?.*\?s=6&p=(\d+)/) : null;
+				if (matches !== null) {
+					const mspaPage = parseInt(matches[1], 10);
+					const homestuckPage = mspaPage - 1900;
+
+					jmtyler.memory.set('active', '/story');
+					jmtyler.memory.set('stories', {
+						'/story': {
+							title:    'Homestuck',
+							subtitle: null,
+							pages:    8130,
+							current:  homestuckPage,
+						},
+					});
 				}
 
-				const mspaPageId = parseInt(matches[1], 10);
-				const homestuckPageId = mspaPageId - 1900;
-				jmtyler.memory.set('last_page_read', 'https://www.homestuck.com/story/' + homestuckPageId);
+				jmtyler.memory.clear('latest_update');
+				jmtyler.memory.clear('last_page_read');
+				jmtyler.settings.clear('check_frequency');
 			},
 		});
 	};
