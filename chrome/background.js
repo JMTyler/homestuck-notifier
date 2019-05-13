@@ -1,7 +1,9 @@
 
+const HomestuckURLRegex = /^https:\/\/www\.homestuck\.com(\/[a-z/-]+)($|\/([0-9]+))/;
+
 const icons = {
-	idle:    'icons/16.png',
-	updates: 'icons/16.png',
+	idle:   'icons/16.png',
+	potato: 'icons/16.png',
 };
 
 /* Main */
@@ -9,11 +11,10 @@ const icons = {
 const Main = () => {
 	jmtyler.log('executing Main()');
 
-	chrome.browserAction.setBadgeBackgroundColor({ color: '#00AA00' });
+	chrome.browserAction.setBadgeBackgroundColor({ color: '#BB0000' });
 	if (jmtyler.settings.get('is_debug_mode')) {
 		// TODO: Use red 2B house for icon during debug mode, instead of green 2A house.
-		chrome.browserAction.setBadgeText({ text: 'dbg' });
-		chrome.browserAction.setBadgeBackgroundColor({ color: '#BB0000' });
+		chrome.browserAction.setBadgeBackgroundColor({ color: '#00AA00' });
 
 		// Make some key functions globally accessible for debug mode.
 		window.LaunchTab = () => LaunchTab();
@@ -21,16 +22,12 @@ const Main = () => {
 		window.ClearData = () => ClearData();
 	}
 
-	const lastPageRead    = jmtyler.memory.get('last_page_read');
-	const latestUpdate    = jmtyler.memory.get('latest_update');
-	const doShowPageCount = jmtyler.settings.get('show_page_count');
-
 	// After startup, make sure the browser action still looks as it should with context.
-	SetStatus('idle', lastPageRead);
-	if (lastPageRead == latestUpdate) {
-		SetBadge('');
-	} else if (latestUpdate !== false && doShowPageCount) {
-		SetBadge(CalculateRemainingPages(lastPageRead, latestUpdate));
+	// TODO: Remember to handle first install, when we don't have any data yet.
+	const activeStory = GetActiveStory();
+	SetStatus('idle', activeStory);
+	if (jmtyler.settings.get('show_page_count')) {
+		SetBadge(activeStory.pages - activeStory.current);
 	}
 
 	chrome.contextMenus.create({
@@ -70,10 +67,28 @@ const Main = () => {
 /* Event Handlers */
 
 const OnMessage = {
-	Potato({ story, arc, endpoint, page }) {
+	Potato({ story: title, arc: subtitle, endpoint, page }) {
+		let toastType = 'new_pages';
 		// TODO: Probably don't want to distract the user if this potato isn't new *for them* (though it should be new for everyone now).
-		ShowToast(story, arc, endpoint, page);
-		PlaySound();
+		const stories = jmtyler.memory.get('stories');
+		if (!stories[endpoint]) {
+			// TODO: brand new story/arc!
+			toastType = 'new_story';  // TODO: Also need to differentiate between new_story and new_arc.
+			stories[endpoint] = {
+				endpoint: endpoint,
+				title:    title,
+				subtitle: subtitle || null,
+				pages:    0,
+				current:  0,
+			};
+		}
+
+		const potatoSize = page - stories[endpoint].pages;
+		stories[endpoint].pages = page;
+		jmtyler.memory.set('stories', stories);
+
+		SetStatus('potato', stories[endpoint]);
+		ShowToast(toastType, stories[endpoint], potatoSize);
 	},
 	Unknown() {
 		jmtyler.log('An unknown Runtime Message was received and therefore could not be processed.');
@@ -82,7 +97,18 @@ const OnMessage = {
 
 const OnOverrideLastPageRead = ({ pageUrl }) => {
 	// TODO: We should check which menu item was clicked.  We'll probably end up with more menu items soon.
-	MarkPage(pageUrl);
+
+	const urlParts = pageUrl.match(HomestuckURLRegex);
+	const endpoint = urlParts[1];
+	const page     = parseInt(urlParts[3] || '0', 10);
+
+	const stories = jmtyler.memory.get('stories');
+	if (!stories[endpoint]) {
+		// TODO: Should maybe inform the user this is not a comic page.
+		return;
+	}
+
+	MarkPage(endpoint, page);
 };
 
 const OnPageVisit = (_tabId, { url: currentPageUrl }) => {
@@ -90,29 +116,25 @@ const OnPageVisit = (_tabId, { url: currentPageUrl }) => {
 		return;
 	}
 
-	// This listener isn't triggered AFTER a regex filter like the context menu, so must do it ourselves.
-	const currentPage = currentPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
-	if (currentPage === null) {
-		// This is not an MSPA comic page, so we don't care about it.
+	// This listener isn't triggered AFTER a regex filter like the context menu, so must validate it ourselves.
+	const urlParts = currentPageUrl.match(HomestuckURLRegex);
+	if (!urlParts) {
+		// This is not a Homestuck page, so we don't care about it.
 		return;
 	}
 
-	// TODO: We're on Homestuck.com, but it may not be a comic page.  Filter URL through our list of Story Arc endpoints.
+	const currentEndpoint = urlParts[1];
+	const currentPage     = parseInt(urlParts[3] || '0', 10);
 
-	const savedPageUrl = jmtyler.memory.get('last_page_read');
-	const savedPage    = savedPageUrl.match(/^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/);
+	const stories = jmtyler.memory.get('stories');
+	const story = stories[currentEndpoint];
+	if (!story) {
+		// This page IS on Homestuck.com, but is NOT a comic page.
+		return;
+	}
 
-	// Strip the page IDs off this page's URL and our saved page's URL, then compare them.
-	const currentStory  = currentPage[1];
-	const currentPageId = parseInt(currentPage[3] || '1', 10);
-	const savedStory    = savedPage[1];
-	const savedPageId   = parseInt(savedPage[3] || '1', 10);
-
-	// TODO: We should update every Story's last read page anyway, whether it's my active Story or not.
-	if (currentStory === savedStory && currentPageId > savedPageId) {
-		// This page is LATER than the last page we've read, so this is the new one!
-		// TODO: This is actually broken now, since CalculateRemainingPages expects an MSPA URL.
-		MarkPage(currentPageUrl);
+	if (currentPage > story.current) {
+		MarkPage(currentEndpoint, currentPage);
 	}
 };
 
@@ -122,38 +144,35 @@ const OnPageVisit = (_tabId, { url: currentPageUrl }) => {
  */
 const LaunchTab = () => {
 	try {
-		const latestUpdate = jmtyler.memory.get('latest_update');
-		const lastPageRead = jmtyler.memory.get('last_page_read') || "https://www.homestuck.com";
-
-		jmtyler.log('executing LaunchTab()', latestUpdate, lastPageRead);
-
-		chrome.tabs.create({ url: lastPageRead });
+		const story = GetActiveStory();
+		jmtyler.log('executing LaunchTab()', story);
+		chrome.tabs.create({ url: `https://www.homestuck.com${story.endpoint}/${story.current}` });
 	} catch (e) {
 		jmtyler.log('failed to open new tab for MSPA', e);
 	}
-
-	return;
 };
 
 /* Core Functions */
 
-const MarkPage = (url) => {
-	// TODO: This should take more info than just URL, and update everything.
-	jmtyler.memory.set('last_page_read', url);
-	SetStatus('idle', url);
+const MarkPage = (endpoint, page) => {
+	const stories = jmtyler.memory.get('stories');
+	stories[endpoint].current = page;
+	jmtyler.memory.set('stories', stories);
 
-	const latestUpdate = jmtyler.memory.get('latest_update');
-	if (latestUpdate !== false && doShowPageCount) {
-		SetBadge(CalculateRemainingPages(url, latestUpdate));
+	const story = stories[endpoint];
+	SetStatus('idle', story);
+	if (jmtyler.settings.get('show_page_count')) {
+		SetBadge(story.pages - story.current);
 	}
 };
 
 const PlaySound = () => {
 	const toastSoundUri = jmtyler.settings.get('toast_sound_uri');
-	if (toastSoundUri == null) {
+	if (!toastSoundUri) {
 		return;
 	}
 
+	// TODO: This MIGHT not work anymore once we switch to a nonpersistent background script...
 	// Get the existing <audio /> element from the page, if one's already been created ...
 	let audio = document.getElementsByTagName('audio');
 	if (audio.length > 0) {
@@ -171,54 +190,67 @@ const PlaySound = () => {
 	audio.src = toastSoundUri;
 };
 
-const ShowToast = (story, arc, endpoint, page) => {
-	// Show notification for new updates.
+const ShowToast = (type, story, count) => {
+	if (!jmtyler.settings.get('notifications_on')) {
+		return;
+	}
+
+	const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
+
 	const iconUrl = jmtyler.settings.get('toast_icon_uri');
-	const title   = "Homestuck.com - " + story;
-	const message = "Update!! Click here to start reading!";
+	const title   = 'Homestuck.com';
+	let message = ({
+		'new_story': `<strong>THERE'S A BRAND NEW STORY: <em>${story.title}</em></strong>`,
+		'new_arc':   `<strong><em>${story.title}</em> POSTED A NEW STORY: <em>${story.subtitle}</em></strong>`,
+		'new_pages': `<strong>THERE'S BEEN AN UPDATE TO <em>${fullTitle}</em>!!!</strong>`,
+	})[type];
+
+	if (jmtyler.settings.get('show_page_count')) {
+		message += `\n<sup>(There are ${count} new pages.)</sup>`;
+	}
 
 	chrome.notifications.create({ type: 'basic', title, message, iconUrl }, (id) => {
 		// TODO: This doesn't seem to have an effect.  The toast is clearing itself automatically.
+		// TODO: I think I'd actually like to keep the toast up persistently until they close it.
 		setTimeout(() => chrome.notifications.clear(id), 10000);
 	});
+
+	PlaySound();
 };
 
 /* Helpers */
 
-const SetStatus = (iconKey, lastPageRead = null) => {
+const GetActiveStory = () => {
+	const endpoint = jmtyler.memory.get('active');
+	const stories = jmtyler.memory.get('stories');
+	return stories[endpoint];
+};
+
+const SetStatus = (iconKey, story) => {
 	chrome.browserAction.setIcon({ path: icons[iconKey] });
-	if (iconKey !== null) {
-		chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n' + lastPageRead });
-	}
+
+	const fullTitle = [story.title, story.subtitle].filter((v) => v).join(' - ');
+	const status = `Currently reading: ${fullTitle}\nOn Page #${story.current}`;
+	chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n' + status });
 };
 
-const SetBadge = (text) => {
-	chrome.browserAction.setBadgeText({ text: text.toString() });
-};
-
-const CalculateRemainingPages = (lastPageRead, latestUpdate) => {
-	// TODO: Should probably start storing the unread pages count so we don't have to do this.
-	const lastPageReadId     = parseInt(lastPageRead.substr(lastPageRead.length - 6), 10);
-	const latestUpdatePageId = parseInt(latestUpdate.substr(latestUpdate.length - 6), 10);
-	const unreadPageCount    = latestUpdatePageId - lastPageReadId;
-	return unreadPageCount;
+const SetBadge = (count) => {
+	let text = count.toString();
+	if (count == 0) text = '';
+	chrome.browserAction.setBadgeText({ text });
 };
 
 const ClearData = () => {
 	jmtyler.settings.clear();
 	jmtyler.memory.clear();
 	SetStatus('idle');
-	SetBadge('');
+	SetBadge(0);
 };
 
-chrome.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
+chrome.runtime.onInstalled.addListener(({ reason }) => {
+	const previousVersion = jmtyler.memory.get('version');
 	const currentVersion = chrome.runtime.getManifest().version;
 	jmtyler.log('executing onInstalled()', { currentVersion, previousVersion, reason });
-
-	if (currentVersion == previousVersion) {
-		jmtyler.log('  new version is same as old version... aborting');
-		return;
-	}
 
 	// If the latest version has already been fully installed, don't do anything. (Not sure how we got here, though.)
 	if (jmtyler.version.isInstalled(currentVersion)) {
@@ -233,7 +265,6 @@ chrome.runtime.onInstalled.addListener(({ reason, previousVersion }) => {
 			jmtyler.version.install(currentVersion);
 			break;
 		case 'update':
-		case 'chrome_update':
 			jmtyler.log('  extension is being updated');
 			jmtyler.version.update(previousVersion, currentVersion);
 			break;

@@ -55,10 +55,6 @@ jmtyler.settings = (function()
 				return null;
 			}
 
-			if (key === 'show_page_count') {
-				return false;
-			}
-
 			return _settings[key];
 		},
 		set: function(key, value)

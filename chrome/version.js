@@ -1,7 +1,7 @@
 
 // TODO: Really have to go through this and comment... it's confusing as heck.  But it works!
 
-const jmtyler = jmtyler || {};
+var jmtyler = jmtyler || {};
 jmtyler.version = (() => {
 	const init = () => {
 		addUpdate({
@@ -48,17 +48,26 @@ jmtyler.version = (() => {
 					const mspaPage = parseInt(matches[1], 10);
 					const homestuckPage = mspaPage - 1900;
 
+					const stories = jmtyler.memory.get('stories');
+
 					jmtyler.memory.set('active', '/story');
-					jmtyler.memory.set('stories', {
+					jmtyler.memory.set('stories', Object.assign(stories, {
 						'/story': {
+							endpoint: '/story',
 							title:    'Homestuck',
 							subtitle: null,
 							pages:    8130,
 							current:  homestuckPage,
 						},
-					});
+					}));
 				}
 
+				// TODO: Need to fetch all the other existing stories to populate our memory.
+				// TODO: Also need to pre-populate our memory with existing stories on every fresh install.
+				// TODO: Do we need a flag to indicate that we're still populating the DB? To avoid false positive potatoes?
+				// TODO: Might need to inspect the 'toast_icon_uri' setting and migrate it, if the user ever changed it then reverted.
+
+				jmtyler.memory.clear('http_last_modified');
 				jmtyler.memory.clear('latest_update');
 				jmtyler.memory.clear('last_page_read');
 				jmtyler.settings.clear('check_frequency');
