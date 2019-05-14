@@ -13,7 +13,10 @@ const Main = () => {
 
 	chrome.browserAction.setBadgeBackgroundColor({ color: '#BB0000' });
 	if (jmtyler.settings.get('is_debug_mode')) {
-		// TODO: Use red 2B house for icon during debug mode, instead of green 2A house.
+		Object.assign(icons, {
+			idle:   { '16': 'icons/16.png', '32': 'icons/2B_32.png' },
+			potato: { '16': 'icons/16.png', '32': 'icons/2B_32.png' },
+		});
 		chrome.browserAction.setBadgeBackgroundColor({ color: '#00AA00' });
 
 		// Make some key functions globally accessible for debug mode.
