@@ -2,8 +2,8 @@
 const HomestuckURLRegex = /^https:\/\/www\.homestuck\.com(\/[a-z/-]+)($|\/([0-9]+))/;
 
 const icons = {
-	idle:   'icons/16.png',
-	potato: 'icons/16.png',
+	idle:   { '16': 'icons/16.png', '32': 'icons/32.png' },
+	potato: { '16': 'icons/16.png', '32': 'icons/32.png' },
 };
 
 /* Main */
