@@ -149,7 +149,12 @@ const LaunchTab = () => {
 	try {
 		const story = GetActiveStory();
 		jmtyler.log('executing LaunchTab()', story);
-		chrome.tabs.create({ url: `https://www.homestuck.com${story.endpoint}/${story.current}` });
+
+		let url = `https://www.homestuck.com${story.endpoint}`;
+		if (story.current) {
+			url += `/${story.current}`;
+		}
+		chrome.tabs.create({ url });
 	} catch (e) {
 		jmtyler.log('failed to open new tab for MSPA', e);
 	}
