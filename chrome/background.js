@@ -34,9 +34,9 @@ const Main = () => {
 	}
 
 	chrome.contextMenus.create({
-		title:               "Mark as my Last Read page",
+		title:               "Save As My Current Page",
 		documentUrlPatterns: ["https://www.homestuck.com/*"],
-		contexts:            ['page', 'frame', 'link', 'image', 'video', 'audio'],  // Pretty much as long as it is on the MSPA website.
+		contexts:            ['all'],
 	});
 
 	chrome.contextMenus.onClicked.addListener(OnOverrideLastPageRead);
@@ -156,7 +156,7 @@ const LaunchTab = () => {
 		}
 		chrome.tabs.create({ url });
 	} catch (e) {
-		jmtyler.log('failed to open new tab for MSPA', e);
+		jmtyler.log('failed to open new tab', e);
 	}
 };
 
