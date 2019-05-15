@@ -3,141 +3,103 @@
 
 var jmtyler = jmtyler || {};
 jmtyler.version = (() => {
-	const init = () => {
-		addUpdate({
-			from: '1.0.1',
-			to:   '1.1.0',
-			with: () => {
-				if (typeof localStorage['check_frequency'] != 'undefined') {
-					jmtyler.settings.set('check_frequency', JSON.parse(localStorage['check_frequency']));
-					delete localStorage['check_frequency'];
-				}
+	const migrations = {
+		'1557880371381 - 2.0.0 - Migrate from MSPA to Homestuck.com': () => {
+			const lastPageRead = jmtyler.memory.get('last_page_read');
+			const matches = lastPageRead ? lastPageRead.match(/^http:\/\/www\.mspaintadventures\.com\/?.*\?s=6&p=(\d+)/) : null;
+			if (matches !== null) {
+				const mspaPage = parseInt(matches[1], 10);
+				const homestuckPage = mspaPage - 1900;
 
-				if (typeof localStorage['notifications_on'] != 'undefined') {
-					jmtyler.settings.set('notifications_on', JSON.parse(localStorage['notifications_on']));
-					delete localStorage['notifications_on'];
-				}
+				const stories = jmtyler.memory.get('stories');
 
-				if (typeof localStorage['last_page_read'] != 'undefined') {
-					jmtyler.memory.set('last_page_read', localStorage['last_page_read']);
-					delete localStorage['last_page_read'];
-				}
+				jmtyler.memory.set('active', '/story');
+				jmtyler.memory.set('stories', Object.assign(stories, {
+					'/story': {
+						endpoint: '/story',
+						title:    'Homestuck',
+						subtitle: null,
+						pages:    8130,
+						current:  homestuckPage,
+					},
+				}));
+			}
 
-				if (typeof localStorage['latest_update'] != 'undefined') {
-					jmtyler.memory.set('latest_update', localStorage['latest_update']);
-					delete localStorage['latest_update'];
-				}
-			},
-		});
+			// TODO: Need to fetch all the other existing stories to populate our memory.
+			// TODO: Also need to pre-populate our memory with existing stories on every fresh install.
+			// TODO: Do we need a flag to indicate that we're still populating the DB? To avoid false positive potatoes?
+			// TODO: Might need to inspect the 'toast_icon_uri' setting and migrate it, if the user ever changed it then reverted.
 
-		addUpdate({
-			from: '1.2.1',
-			to:   '1.3.0',
-			with: () => {
-				jmtyler.memory.clear('is_gigapause_over');
-			},
-		});
-
-		addUpdate({
-			from: '1.4.2',
-			to:   '2.0.0',
-			with: () => {
-				const lastPageRead = jmtyler.memory.get('last_page_read');
-				const matches = lastPageRead ? lastPageRead.match(/^http:\/\/www\.mspaintadventures\.com\/?.*\?s=6&p=(\d+)/) : null;
-				if (matches !== null) {
-					const mspaPage = parseInt(matches[1], 10);
-					const homestuckPage = mspaPage - 1900;
-
-					const stories = jmtyler.memory.get('stories');
-
-					jmtyler.memory.set('active', '/story');
-					jmtyler.memory.set('stories', Object.assign(stories, {
-						'/story': {
-							endpoint: '/story',
-							title:    'Homestuck',
-							subtitle: null,
-							pages:    8130,
-							current:  homestuckPage,
-						},
-					}));
-				}
-
-				// TODO: Need to fetch all the other existing stories to populate our memory.
-				// TODO: Also need to pre-populate our memory with existing stories on every fresh install.
-				// TODO: Do we need a flag to indicate that we're still populating the DB? To avoid false positive potatoes?
-				// TODO: Might need to inspect the 'toast_icon_uri' setting and migrate it, if the user ever changed it then reverted.
-
-				jmtyler.memory.clear('http_last_modified');
-				jmtyler.memory.clear('latest_update');
-				jmtyler.memory.clear('last_page_read');
-				jmtyler.settings.clear('check_frequency');
-			},
-		});
+			jmtyler.memory.clear('http_last_modified');
+			jmtyler.memory.clear('latest_update');
+			jmtyler.memory.clear('last_page_read');
+			jmtyler.settings.clear('check_frequency');
+		},
 	};
 
-	const updates = {};
-	const addUpdate = (details) => {
-		updates[details.to] = {
-			run: () => {
-				jmtyler.log('      updating to version [' + details.to + ']', localStorage);
+	const runMigrations = () => {
+		const finishedMigrations = jmtyler.memory.get('migrations') || [];
+		const migrationsToRun = Object.keys(migrations).filter((v) => !finishedMigrations.includes(v)).sort();
 
-				details.with();
-				jmtyler.memory.set('version', details.to);
+		// TODO: Does this need to support async?
+		migrationsToRun.forEach((v) => {
+			jmtyler.log('* migrating:', v, { settings: jmtyler.settings.get(), memory: jmtyler.memory.get() });
 
-				jmtyler.log('      finished updating', localStorage);
-			},
-			next: () => {
-				return false;
-			},
-		};
+			migrations[v]();
+			finishedMigrations.push(v);
+			jmtyler.memory.set('migrations', finishedMigrations);
 
-		if (typeof updates[details.from] == 'undefined') {
-			updates[details.from] = {
-				run: () => {
-					jmtyler.log('      no changes for version [' + details.from + ']');
-					jmtyler.memory.set('version', details.from);
-				},
-			};
-		}
-
-		updates[details.from].next = () => {
-			return updates[details.to];
-		};
+			jmtyler.log('** finished:', v, { settings: jmtyler.settings.get(), memory: jmtyler.memory.get() });
+		});
 	};
-
-	const getUpdate = (version) => {
-		if (typeof updates[version] == 'undefined') {
-			return false;
-		}
-
-		return updates[version];
-	};
-
-	init();
 
 	return {
-		install(version) {
-			jmtyler.log('fresh install', version);
-			jmtyler.memory.set('version', version);
-		},
-		update(fromVersion, toVersion) {
-			jmtyler.log('    updating extension...', fromVersion, toVersion);
-
-			let update = getUpdate(fromVersion);
-			if (update) {
-				while (update = update.next()) {
-					update.run();
-				}
-			}
-			jmtyler.memory.set('version', toVersion);
-
-			jmtyler.log('    finished updating extension');
-		},
 		isInstalled(version) {
-			if (jmtyler.memory.get('version') == version) {
-				return true;
-			}
-			return false;
+			return jmtyler.memory.get('version') == version;
+		},
+		install(version) {
+			jmtyler.log('fresh install at', version);
+			jmtyler.memory.set('migrations', Object.keys(migrations));
+		},
+		update(version) {
+			jmtyler.log('updating extension to', version);
+			runMigrations();
+		},
+		migrate() {
+			return new Promise((resolve) => {
+				const version = chrome.runtime.getManifest().version;
+				jmtyler.log('checking if current version has been installed... ' + (this.isInstalled(version) ? 'yes' : 'no'));
+
+				if (this.isInstalled(version)) {
+					// Only run the main process immediately if the latest version has already been fully installed.
+					jmtyler.log('current version is already installed, running Main() immediately');
+					return resolve();
+				}
+
+				chrome.runtime.onInstalled.addListener(({ reason }) => {
+					jmtyler.log('onInstalled triggered', { previous: jmtyler.memory.get('version'), current: version, reason });
+
+					// If the latest version has already been fully installed, don't do anything. (Not sure how we got here, though.)
+					if (this.isInstalled(version)) {
+						jmtyler.log('new version has already been installed... aborting');
+						return;
+					}
+
+					// Install the latest version, performing any necessary migrations.
+					if (reason == 'install') {
+						this.install(version);
+					}
+					if (reason == 'update') {
+						this.update(version);
+					}
+					jmtyler.memory.set('version', version);
+
+					jmtyler.log('finished migration, running Main()');
+
+					// Now that we've finished any migrations, we can run the main process.
+					return resolve();
+				});
+			});
 		},
 	};
 })();

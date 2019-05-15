@@ -261,43 +261,6 @@ const ClearData = () => {
 	SetBadge(0);
 };
 
-chrome.runtime.onInstalled.addListener(({ reason }) => {
-	const previousVersion = jmtyler.memory.get('version');
-	const currentVersion = chrome.runtime.getManifest().version;
-	jmtyler.log('executing onInstalled()', { currentVersion, previousVersion, reason });
-
-	// If the latest version has already been fully installed, don't do anything. (Not sure how we got here, though.)
-	if (jmtyler.version.isInstalled(currentVersion)) {
-		jmtyler.log('  new version has already been installed... aborting');
-		return;
-	}
-
-	// Install the latest version, performing any necessary migrations.
-	switch (reason) {
-		case 'install':
-			jmtyler.log('  extension is newly installed');
-			jmtyler.version.install(currentVersion);
-			break;
-		case 'update':
-			jmtyler.log('  extension is being updated');
-			jmtyler.version.update(previousVersion, currentVersion);
-			break;
-		default:
-			jmtyler.log('  extension is in some unhandled state... [' + reason + ']');
-			break;
-	}
-
-	jmtyler.log('  done migration, ready to run Main()');
-
-	// Now that we've finished any migrations, we can run the main process.
+jmtyler.version.migrate().then(() => {
 	Main();
 });
-
-const version = chrome.runtime.getManifest().version;
-const isInstalled = jmtyler.version.isInstalled(version);
-jmtyler.log('checking if current version has been installed...' + (isInstalled ? 'yes' : 'no'));
-if (isInstalled) {
-	// Only run the main process immediately if the latest version has already been fully installed.
-	jmtyler.log('current version is installed, running Main() immediately');
-	Main();
-}
