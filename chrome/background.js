@@ -53,9 +53,15 @@ const Main = () => {
 	// chrome.gcm.register([ vapidKey ], (registrationId) => {
 	// TODO: Debug mode should hook into a separate FCM account purely for testing.
 	chrome.instanceID.getToken({ authorizedEntity: '710329635775', scope: 'GCM' }, (token) => {
-		// TODO: Need to send token to API to subscribe to the potato FCM topic.
-		// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
 		console.log('registered with gcm', token || chrome.runtime.lastError.message);
+
+		// Upload token to server, subscribing to the FCM topic.
+		const req = new XMLHttpRequest();
+		req.addEventListener('load', (ev) => console.log('load event:', ev.target));
+		req.addEventListener('error' /* abort, timeout */, (ev) => console.error('error event:', ev.target));
+		// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
+		req.open('POST', 'http://127.0.0.1/subscribe', true);
+		req.send(JSON.stringify({ token }));
 
 		// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
 		// TODO: For some features, we must specify a lowest supported Chrome version.  Will that allow us to use ES6 features too?
