@@ -27,25 +27,67 @@ const Main = () => {
 
 	// After startup, make sure the browser action still looks as it should with context.
 	// TODO: Remember to handle first install, when we don't have any data yet.
-	const activeStory = GetActiveStory();
-	SetStatus('idle', activeStory);
-	if (jmtyler.settings.get('show_page_count')) {
-		SetBadge(activeStory.pages - activeStory.current);
-	}
+	const story = GetActiveStory();
+	RenderButton({ icon: 'idle', story, count: story.pages - story.current });
 
 	chrome.contextMenus.create({
-		title:               "Save As My Current Page",
-		documentUrlPatterns: ["https://www.homestuck.com/*"],
+		id:       'jump_to',
+		title:    'Jump to Story...',
+		contexts: ['browser_action'],
+	});
+
+	// TODO: Reverse the order of these badbois.  Also have to update their titles whenever their current page changes.
+	const stories = jmtyler.memory.get('stories');
+	Object.keys(stories).forEach((key) => {
+		const story = stories[key];
+		const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
+		chrome.contextMenus.create({
+			parentId: 'jump_to',
+			id:       `goto_${story.endpoint}`,
+			title:    `${fullTitle} (pg. ${story.current})`,
+			contexts: ['browser_action'],
+		});
+	});
+
+	// chrome.contextMenus.create({
+	// 	type:     'separator',
+	// 	id:       'separator',
+	// 	contexts: ['browser_action'],
+	// });
+
+	// TODO: Force this to match ONLY story pages, and remove/re-create the context menu when new stories appear.
+	// TODO: Maybe call Sync after this, to make sure their initial value respects the initial tab state?
+	chrome.contextMenus.create({
+		id:                  'set_current',
+		title:               'Save as My Current Page',
+		documentUrlPatterns: ['https://www.homestuck.com/*'],
 		contexts:            ['all'],
 	});
 
-	chrome.contextMenus.onClicked.addListener(OnOverrideLastPageRead);
-	chrome.tabs.onUpdated.addListener(OnPageVisit);
-	chrome.browserAction.onClicked.addListener(LaunchTab);
-	chrome.notifications.onClicked.addListener((id) => {
-		chrome.notifications.clear(id);
-		LaunchTab();
+	chrome.contextMenus.create({
+		id:                  'set_active',
+		title:               `Set "Problem Sleuth" as Default Story`,
+		documentUrlPatterns: ['https://www.homestuck.com/*'],
+		contexts:            ['all'],
 	});
+
+	chrome.contextMenus.create({
+		type:     'separator',
+		contexts: ['browser_action'],
+	});
+
+	chrome.contextMenus.create({
+		id:       'toggle_page_counts',
+		title:    `${jmtyler.settings.get('show_page_count') ? 'Hide' : 'Show'} Page Counts`,
+		contexts: ['browser_action'],
+	});
+
+	chrome.contextMenus.onClicked.addListener(OnMenuClick);
+	chrome.tabs.onActivated.addListener(OnTabChange);
+	chrome.tabs.onUpdated.addListener(OnPageLoad);
+	chrome.browserAction.onClicked.addListener(() => LaunchTab());
+	chrome.notifications.onClicked.addListener(OnNotificationClick);
+	chrome.notifications.onButtonClicked.addListener(OnNotificationClick);
 	// TODO: Probably just switch this out for an event emitter or something.
 	chrome.runtime.onMessage.addListener(({ method, args = {} }) => (OnMessage[method] ? OnMessage[method](args) : OnMessage.Unknown()));
 
@@ -60,8 +102,9 @@ const Main = () => {
 		req.addEventListener('load', (ev) => console.log('load event:', ev.target));
 		req.addEventListener('error' /* abort, timeout */, (ev) => console.error('error event:', ev.target));
 		// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
+		// TODO: Remember to point this to the production Heroku server before launch.
 		req.open('POST', 'http://127.0.0.1/subscribe', true);
-		req.send(JSON.stringify({ token }));
+		// req.send(JSON.stringify({ token }));
 
 		// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
 		// TODO: For some features, we must specify a lowest supported Chrome version.  Will that allow us to use ES6 features too?
@@ -96,12 +139,45 @@ const OnMessage = {
 		stories[endpoint].pages = page;
 		jmtyler.memory.set('stories', stories);
 
-		SetStatus('potato', stories[endpoint]);
+		// TODO: Shouldn't push the story into the button unless it's the user's active story.
+		RenderButton({ icon: 'potato', story: stories[endpoint] });
 		ShowToast(toastType, stories[endpoint], potatoSize);
+	},
+	OnSettingsChange() {
+		TouchButton();
+		chrome.contextMenus.update('toggle_page_counts', { title: `${jmtyler.settings.get('show_page_count') ? 'Hide' : 'Show'} Page Counts` });
 	},
 	Unknown() {
 		jmtyler.log('An unknown Runtime Message was received and therefore could not be processed.');
 	},
+};
+
+const OnMenuClick = ({ menuItemId, ...info }) => {
+	if (menuItemId == 'set_current') {
+		return OnOverrideLastPageRead(info);
+	}
+	if (menuItemId == 'set_active') {
+		const stories = jmtyler.memory.get('stories');
+		Object.keys(stories).forEach((key) => {
+			const story = stories[key];
+			const urlMatcher = new RegExp(`^https://www.homestuck.com${story.endpoint}`);
+
+			if (urlMatcher.test(info.pageUrl)) {
+				// TODO: Update browser action title with new active story info.
+				jmtyler.memory.set('active', story.endpoint);
+			}
+		});
+		return;
+	}
+	if (menuItemId == 'toggle_page_counts') {
+		jmtyler.settings.set('show_page_count', !jmtyler.settings.get('show_page_count'));
+		OnMessage.OnSettingsChange();
+	}
+	if (menuItemId.startsWith('goto_')) {
+		const endpoint = menuItemId.substr(5);
+		return LaunchTab(endpoint);
+	}
+	// TODO unknown menu item
 };
 
 const OnOverrideLastPageRead = ({ pageUrl }) => {
@@ -120,12 +196,21 @@ const OnOverrideLastPageRead = ({ pageUrl }) => {
 	MarkPage(endpoint, page);
 };
 
-const OnPageVisit = (_tabId, { url: currentPageUrl }) => {
+const OnTabChange = ({ tabId }) => {
+	chrome.tabs.get(tabId, ({ url }) => {
+		SyncContextMenu(url);
+	});
+};
+
+const OnPageLoad = (_tabId, { url: currentPageUrl }) => {
 	if (!currentPageUrl) {
+		console.log('no page url');
 		return;
 	}
 
-	// This listener isn't triggered AFTER a regex filter like the context menu, so must validate it ourselves.
+	SyncContextMenu(currentPageUrl);
+
+	// This listener isn't triggered AFTER a regex filter like the context menu, so we must validate it ourselves.
 	const urlParts = currentPageUrl.match(HomestuckURLRegex);
 	if (!urlParts) {
 		// This is not a Homestuck page, so we don't care about it.
@@ -147,14 +232,19 @@ const OnPageVisit = (_tabId, { url: currentPageUrl }) => {
 	}
 };
 
+const OnNotificationClick = (id) => {
+	chrome.notifications.clear(id);
+	LaunchTab();
+};
+
 /**
  * Set button icon as idle, open a new tab with the last page read,
  * and set the new 'last page read' as the latest update available.
  */
-const LaunchTab = () => {
+const LaunchTab = (endpoint = null) => {
 	try {
-		const story = GetActiveStory();
-		jmtyler.log('executing LaunchTab()', story);
+		const story = endpoint ? GetStory(endpoint) : GetActiveStory();
+		jmtyler.log('executing LaunchTab()', story.endpoint);
 
 		let url = `https://www.homestuck.com${story.endpoint}`;
 		if (story.current) {
@@ -173,11 +263,9 @@ const MarkPage = (endpoint, page) => {
 	stories[endpoint].current = page;
 	jmtyler.memory.set('stories', stories);
 
-	const story = stories[endpoint];
-	SetStatus('idle', story);
-	if (jmtyler.settings.get('show_page_count')) {
-		SetBadge(story.pages - story.current);
-	}
+	const story = GetActiveStory();
+	const count = story.pages - story.current;
+	RenderButton({ icon: 'idle', count, story });
 };
 
 const PlaySound = () => {
@@ -214,19 +302,19 @@ const ShowToast = (type, story, count) => {
 	const iconUrl = jmtyler.settings.get('toast_icon_uri');
 	const title   = 'Homestuck.com';
 	let message = ({
-		'new_story': `<strong>THERE'S A BRAND NEW STORY: <em>${story.title}</em></strong>`,
-		'new_arc':   `<strong><em>${story.title}</em> POSTED A NEW STORY: <em>${story.subtitle}</em></strong>`,
-		'new_pages': `<strong>THERE'S BEEN AN UPDATE TO <em>${fullTitle}</em>!!!</strong>`,
+		'new_story': `There's a brand new story: ${story.title}`,
+		'new_arc':   `${story.title} posted a new story: ${story.subtitle}`,
+		'new_pages': `There's been an update to ${fullTitle}!!!`,
 	})[type];
 
 	if (jmtyler.settings.get('show_page_count')) {
-		message += `\n<sup>(There are ${count} new pages.)</sup>`;
+		message += `\n(There are ${count} new pages.)`;
 	}
 
-	chrome.notifications.create({ type: 'basic', title, message, iconUrl }, (id) => {
+	chrome.notifications.create({ type: 'basic', title, message, iconUrl, silent: false, requireInteraction: true, buttons: [{ title: 'Read Now' }] }, (id) => {
 		// TODO: This doesn't seem to have an effect.  The toast is clearing itself automatically.
 		// TODO: I think I'd actually like to keep the toast up persistently until they close it.
-		setTimeout(() => chrome.notifications.clear(id), 10000);
+		// setTimeout(() => chrome.notifications.clear(id), 10000);
 	});
 
 	PlaySound();
@@ -234,31 +322,73 @@ const ShowToast = (type, story, count) => {
 
 /* Helpers */
 
-const GetActiveStory = () => {
-	const endpoint = jmtyler.memory.get('active');
+const GetStory = (endpoint) => {
 	const stories = jmtyler.memory.get('stories');
 	return stories[endpoint];
 };
 
-const SetStatus = (iconKey, story) => {
-	chrome.browserAction.setIcon({ path: icons[iconKey] });
-
-	const fullTitle = [story.title, story.subtitle].filter((v) => v).join(' - ');
-	const status = `Currently reading: ${fullTitle}\nOn Page #${story.current}`;
-	chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n' + status });
+const GetActiveStory = () => {
+	const endpoint = jmtyler.memory.get('active');
+	return GetStory(endpoint);
 };
 
-const SetBadge = (count) => {
-	let text = count.toString();
-	if (count == 0) text = '';
-	chrome.browserAction.setBadgeText({ text });
+const RenderButton = ({ icon: iconKey, count, story }) => {
+	if (iconKey) {
+		chrome.browserAction.setIcon({ path: icons[iconKey] });
+	}
+
+	if (!jmtyler.settings.get('show_page_count')) {
+		chrome.browserAction.setBadgeText({ text: '' });
+	} else if (typeof count != 'undefined') {
+		chrome.browserAction.setBadgeText({ text: (count > 0 ? count.toString() : '') });
+	}
+
+	if (story) {
+		const fullTitle = [story.title, story.subtitle].filter((v) => v).join(' - ');
+		const status = `Currently reading: ${fullTitle}\nOn Page #${story.current}`;
+		chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n' + status });
+	}
+};
+
+const TouchButton = () => {
+	const story = GetActiveStory();
+	RenderButton({ story, count: story.pages - story.current });
+};
+
+const SyncContextMenu = (url) => {
+	const activeStory = jmtyler.memory.get('active');
+	const stories = jmtyler.memory.get('stories');
+
+	console.log(`^https://www.homestuck.com(${Object.keys(stories).join('|')})`);
+	const visible = new RegExp(`^https://www.homestuck.com(${Object.keys(stories).join('|')})`).test(url);
+	chrome.contextMenus.update('separator', { visible });
+	chrome.contextMenus.update('set_current', { visible });
+
+	if (!visible) {
+		chrome.contextMenus.update('set_active', { visible });
+	} else {
+		Object.keys(stories).forEach((key) => {
+			const story = stories[key];
+			// TODO: Add urlMatcher to story object.  Make it easy to lookup/match story by URL.  Make it easy to convert a URL into its equivalent story object.
+			const urlMatcher = new RegExp(`^https://www.homestuck.com${story.endpoint}`);
+
+			if (urlMatcher.test(url)) {
+				// TODO: Also check the page # against story.current to hide the other menu item as well.
+				if (story.endpoint == activeStory) {
+					chrome.contextMenus.update('set_active', { visible: false });
+				} else {
+					const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
+					chrome.contextMenus.update('set_active', { visible, title: `Set "${fullTitle}" as Default Story` });
+				}
+			}
+		});
+	}
 };
 
 const ClearData = () => {
 	jmtyler.settings.clear();
 	jmtyler.memory.clear();
-	SetStatus('idle');
-	SetBadge(0);
+	RenderButton({ icon: 'idle', count: 0 });
 };
 
 jmtyler.version.migrate().then(() => {

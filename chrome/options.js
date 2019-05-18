@@ -74,6 +74,8 @@ $(function() {
 			.set('show_page_count', doShowPageCount)
 			.set('toast_icon_uri', toastIconUri)
 			.set('toast_sound_uri', toastSoundUri);
+
+		chrome.runtime.sendMessage({ method: 'OnSettingsChange' });
 	});
 
 	$('#btnReset').button();
