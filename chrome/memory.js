@@ -4,6 +4,7 @@ jmtyler.memory = (function()
 {
 	var _memory = null;
 
+	// TODO: How do we handle active = null?  Or do we set a real default?
 	var _defaults = {
 		'active':  null,
 		'stories': {},

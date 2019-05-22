@@ -78,7 +78,7 @@ const Main = () => {
 
 	chrome.contextMenus.create({
 		id:       'toggle_page_counts',
-		title:    `${jmtyler.settings.get('show_page_count') ? 'Hide' : 'Show'} Page Counts`,
+		title:    `${jmtyler.settings.get('show_page_count') ? 'Hide' : 'Show'} Page Count`,
 		contexts: ['browser_action'],
 	});
 
@@ -127,8 +127,8 @@ const OnMessage = {
 			// TODO: brand new story/arc!
 			toastType = 'new_story';  // TODO: Also need to differentiate between new_story and new_arc.
 			stories[endpoint] = {
-				endpoint: endpoint,
-				title:    title,
+				endpoint,
+				title,
 				subtitle: subtitle || null,
 				pages:    0,
 				current:  0,
@@ -145,7 +145,7 @@ const OnMessage = {
 	},
 	OnSettingsChange() {
 		TouchButton();
-		chrome.contextMenus.update('toggle_page_counts', { title: `${jmtyler.settings.get('show_page_count') ? 'Hide' : 'Show'} Page Counts` });
+		chrome.contextMenus.update('toggle_page_counts', { title: `${jmtyler.settings.get('show_page_count') ? 'Hide' : 'Show'} Page Count` });
 	},
 	Unknown() {
 		jmtyler.log('An unknown Runtime Message was received and therefore could not be processed.');
@@ -361,7 +361,6 @@ const SyncContextMenu = (url) => {
 
 	console.log(`^https://www.homestuck.com(${Object.keys(stories).join('|')})`);
 	const visible = new RegExp(`^https://www.homestuck.com(${Object.keys(stories).join('|')})`).test(url);
-	chrome.contextMenus.update('separator', { visible });
 	chrome.contextMenus.update('set_current', { visible });
 
 	if (!visible) {
@@ -391,6 +390,4 @@ const ClearData = () => {
 	RenderButton({ icon: 'idle', count: 0 });
 };
 
-jmtyler.version.migrate().then(() => {
-	Main();
-});
+jmtyler.version.migrate().then(() => Main());

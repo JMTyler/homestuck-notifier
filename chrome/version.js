@@ -4,7 +4,29 @@
 var jmtyler = jmtyler || {};
 jmtyler.version = (() => {
 	const migrations = {
-		'1557880371381 - 2.0.0 - Migrate from MSPA to Homestuck.com': () => {
+		'1557880371381 - 2.0.0 - Migrate from MSPA to Homestuck.com': async () => {
+			await new Promise((resolve, reject) => {
+				const req = new XMLHttpRequest();
+				// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
+				// TODO: Remember to point this to the production Heroku server before launch.
+				jmtyler.log(`[REQUEST] GET http://127.0.0.1/stories`);
+				req.open('GET', 'http://127.0.0.1/stories', true);
+				req.addEventListener('load', () => {
+					jmtyler.log(`[REQUEST] ↳ Raw Payload:`, req.response);
+					let stories = JSON.parse(req.response);
+					jmtyler.log(`[REQUEST] ↳ Parsed Payload:`, stories);
+					stories = stories.reduce((acc, { endpoint, story: title, arc: subtitle, page: pages }) => {
+						acc[endpoint] = { endpoint, title, subtitle, pages, current: 0 };
+						return acc;
+					}, {});
+					jmtyler.memory.set('stories', stories);
+					jmtyler.memory.set('active', '/story');
+					return resolve();
+				});
+				req.addEventListener('error' /* abort, timeout */, (ev) => console.error('error event:', ev.target));
+				req.send();
+			});
+
 			const lastPageRead = jmtyler.memory.get('last_page_read');
 			const matches = lastPageRead ? lastPageRead.match(/^http:\/\/www\.mspaintadventures\.com\/?.*\?s=6&p=(\d+)/) : null;
 			if (matches !== null) {
@@ -12,22 +34,10 @@ jmtyler.version = (() => {
 				const homestuckPage = mspaPage - 1900;
 
 				const stories = jmtyler.memory.get('stories');
-
-				jmtyler.memory.set('active', '/story');
-				jmtyler.memory.set('stories', Object.assign(stories, {
-					'/story': {
-						endpoint: '/story',
-						title:    'Homestuck',
-						subtitle: null,
-						pages:    8130,
-						current:  homestuckPage,
-					},
-				}));
+				stories['/story'].current = homestuckPage;
+				jmtyler.memory.set('stories', stories);
 			}
 
-			// TODO: Need to fetch all the other existing stories to populate our memory.
-			// TODO: Also need to pre-populate our memory with existing stories on every fresh install.
-			// TODO: Do we need a flag to indicate that we're still populating the DB? To avoid false positive potatoes?
 			// TODO: Might need to inspect the 'toast_icon_uri' setting and migrate it, if the user ever changed it then reverted.
 
 			jmtyler.memory.clear('http_last_modified');
@@ -37,36 +47,63 @@ jmtyler.version = (() => {
 		},
 	};
 
-	const runMigrations = () => {
+	const runFreshInstall = () => {
+		return new Promise((resolve, reject) => {
+			const req = new XMLHttpRequest();
+			// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
+			// TODO: Remember to point this to the production Heroku server before launch.
+			jmtyler.log(`[REQUEST] GET http://127.0.0.1/stories`);
+			req.open('GET', 'http://127.0.0.1/stories', true);
+			req.addEventListener('load', () => {
+				jmtyler.log(`[REQUEST] ↳ Raw Payload:`, req.response);
+				let stories = JSON.parse(req.response);
+				jmtyler.log(`[REQUEST] ↳ Parsed Payload:`, stories);
+				stories = stories.reduce((acc, { endpoint, story: title, arc: subtitle, page: pages }) => {
+					acc[endpoint] = { endpoint, title, subtitle, pages, current: 0 };
+					return acc;
+				}, {});
+				jmtyler.memory.set('stories', stories);
+				jmtyler.memory.set('active', '/story');
+				return resolve();
+			});
+			req.addEventListener('error' /* abort, timeout */, (ev) => console.error('error event:', ev.target));
+			req.send();
+		});
+	};
+
+	const runMigrations = async () => {
 		const finishedMigrations = jmtyler.memory.get('migrations') || [];
-		const migrationsToRun = Object.keys(migrations).filter((v) => !finishedMigrations.includes(v)).sort();
+		const migrationsToRun = Object.keys(migrations).filter((id) => !finishedMigrations.includes(id)).sort();
 
-		// TODO: Does this need to support async?
-		migrationsToRun.forEach((v) => {
-			jmtyler.log('* migrating:', v, { settings: jmtyler.settings.get(), memory: jmtyler.memory.get() });
+		// TODO: This would be much easier if we just use bluebird.
+		await migrationsToRun.reduce(async (flow, id) => {
+			await flow;
 
-			migrations[v]();
-			finishedMigrations.push(v);
+			jmtyler.log('* migrating:', id, { settings: jmtyler.settings.get(), memory: jmtyler.memory.get() });
+
+			await migrations[id]();
+			finishedMigrations.push(id);
 			jmtyler.memory.set('migrations', finishedMigrations);
 
-			jmtyler.log('** finished:', v, { settings: jmtyler.settings.get(), memory: jmtyler.memory.get() });
-		});
+			jmtyler.log('** finished:', id, { settings: jmtyler.settings.get(), memory: jmtyler.memory.get() });
+		}, Promise.resolve());
 	};
 
 	return {
 		isInstalled(version) {
 			return jmtyler.memory.get('version') == version;
 		},
-		install(version) {
+		async install(version) {
 			jmtyler.log('fresh install at', version);
+			await runFreshInstall();
 			jmtyler.memory.set('migrations', Object.keys(migrations));
 		},
-		update(version) {
+		async update(version) {
 			jmtyler.log('updating extension to', version);
-			runMigrations();
+			await runMigrations();
 		},
 		migrate() {
-			return new Promise((resolve) => {
+			return new Promise((resolve, reject) => {
 				const version = chrome.runtime.getManifest().version;
 				jmtyler.log('checking if current version has been installed... ' + (this.isInstalled(version) ? 'yes' : 'no'));
 
@@ -76,7 +113,7 @@ jmtyler.version = (() => {
 					return resolve();
 				}
 
-				chrome.runtime.onInstalled.addListener(({ reason }) => {
+				chrome.runtime.onInstalled.addListener(async ({ reason }) => {
 					jmtyler.log('onInstalled triggered', { previous: jmtyler.memory.get('version'), current: version, reason });
 
 					// If the latest version has already been fully installed, don't do anything. (Not sure how we got here, though.)
@@ -87,12 +124,14 @@ jmtyler.version = (() => {
 
 					// Install the latest version, performing any necessary migrations.
 					if (reason == 'install') {
-						this.install(version);
+						await this.install(version);
+						jmtyler.memory.set('version', version);
 					}
+
 					if (reason == 'update') {
-						this.update(version);
+						await this.update(version);
+						jmtyler.memory.set('version', version);
 					}
-					jmtyler.memory.set('version', version);
 
 					jmtyler.log('finished migration, running Main()');
 
