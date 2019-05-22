@@ -14,8 +14,8 @@ const Main = () => {
 	chrome.browserAction.setBadgeBackgroundColor({ color: '#BB0000' });
 	if (jmtyler.settings.get('is_debug_mode')) {
 		Object.assign(icons, {
-			idle:   { '16': 'icons/16.png', '32': 'icons/2B_32.png' },
-			potato: { '16': 'icons/16.png', '32': 'icons/2B_32.png' },
+			idle:   { '16': 'icons/2B_16.png', '32': 'icons/2B_32.png' },
+			potato: { '16': 'icons/2B_16.png', '32': 'icons/2B_32.png' },
 		});
 		chrome.browserAction.setBadgeBackgroundColor({ color: '#00AA00' });
 
