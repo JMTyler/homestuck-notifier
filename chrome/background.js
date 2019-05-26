@@ -1,5 +1,5 @@
 
-const HomestuckURLRegex = /^https:\/\/www\.homestuck\.com(\/[a-z/-]+)($|\/([0-9]+))/;
+const HomestuckURLRegex = /^https:\/\/www\.homestuck\.com\/([a-z/-]+)($|\/([0-9]+))/;
 
 let icons = {
 	idle:   { '16': 'icons/16.png', '32': 'icons/32.png' },
@@ -26,11 +26,9 @@ const Main = () => {
 	}
 
 	// After startup, make sure the browser action still looks as it should with context.
-	// TODO: Remember to handle first install, when we don't have any data yet.
 	const story = GetActiveStory();
 	RenderButton({ icon: 'idle', story, count: story.pages - story.current });
 
-	// TODO: Maybe call Sync after this, to make sure their initial value respects the initial tab state?
 	InitializeContextMenus();
 	RenderContextMenus();
 
@@ -49,20 +47,20 @@ const Main = () => {
 	// chrome.gcm.register([ vapidKey ], (registrationId) => {
 	// TODO: Debug mode should hook into a separate FCM account purely for testing.
 	chrome.instanceID.getToken({ authorizedEntity: '710329635775', scope: 'GCM' }, (token) => {
-		console.log('registered with gcm', token || chrome.runtime.lastError.message);
+		jmtyler.log('registered with gcm', token || chrome.runtime.lastError.message);
 
 		// Upload token to server, subscribing to the FCM topic.
 		const req = new XMLHttpRequest();
-		req.addEventListener('load', (ev) => console.log('load event:', ev.target));
-		req.addEventListener('error' /* abort, timeout */, (ev) => console.error('error event:', ev.target));
+		req.addEventListener('load', (ev) => jmtyler.log('load event:', ev.target));
+		req.addEventListener('error' /* BLOCKER abort, timeout */, (ev) => console.error('error event:', ev.target));
 		// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
-		// TODO: Remember to point this to the production Heroku server before launch.
+		// BLOCKER: Remember to point this to the production Heroku server before launch.
 		req.open('POST', 'http://127.0.0.1/v1/subscribe', true);
 		req.send(JSON.stringify({ token }));
 
 		// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
-		// TODO: For some features, we must specify a lowest supported Chrome version.  Will that allow us to use ES6 features too?
-		// TODO: What happens if we were offline during a ping?  Does it arrive later?  Do we have to fetch explicitly?
+		// BLOCKER: For some features, we must specify a lowest supported Chrome version.  Will that allow us to use ES6 features too?
+		// BLOCKER: What happens if we were offline during a ping?  Does it arrive later?  Do we have to fetch explicitly?
 		chrome.gcm.onMessage.addListener(({ data: { event, ...args } }) => {
 			console.log('received gcm message', event, args);
 			if (OnMessage[event]) {
@@ -78,11 +76,8 @@ const Main = () => {
 const OnMessage = {
 	Potato({ story: title, arc: subtitle, endpoint, page }) {
 		let toastType = 'new_pages';
-		// TODO: Probably don't want to distract the user if this potato isn't new *for them* (though it should be new for everyone now).
 		const stories = jmtyler.memory.get('stories');
 		if (!stories[endpoint]) {
-			// TODO: brand new story/arc!
-			toastType = 'new_story';  // TODO: Also need to differentiate between new_story and new_arc.
 			stories[endpoint] = {
 				endpoint,
 				title,
@@ -90,15 +85,24 @@ const OnMessage = {
 				pages:    0,
 				current:  0,
 			};
+
+			toastType = 'new_story';
+			for (const story of stories) {
+				if (story.title == title) {
+					toastType = 'new_arc';
+					break;
+				}
+			}
 		}
 
-		const potatoSize = page - stories[endpoint].pages;
 		stories[endpoint].pages = page;
 		jmtyler.memory.set('stories', stories);
 
 		RenderButton({ icon: 'potato' });
 		TouchButton();
 		RenderContextMenus();
+
+		const potatoSize = page - stories[endpoint].pages;
 		ShowToast(toastType, stories[endpoint], potatoSize);
 	},
 	SyncStory({ story: title, arc: subtitle, endpoint, page: pages }) {
@@ -142,7 +146,7 @@ const OnMenuClick = async ({ menuItemId, pageUrl }) => {
 		const stories = jmtyler.memory.get('stories');
 		Object.keys(stories).forEach((key) => {
 			const story = stories[key];
-			const urlMatcher = new RegExp(`^https://www.homestuck.com${story.endpoint}`);
+			const urlMatcher = new RegExp(`^https://www.homestuck.com/${story.endpoint}`);
 
 			if (urlMatcher.test(pageUrl)) {
 				jmtyler.memory.set('active', story.endpoint);
@@ -164,8 +168,6 @@ const OnMenuClick = async ({ menuItemId, pageUrl }) => {
 };
 
 const OnOverrideLastPageRead = (pageUrl) => {
-	// TODO: We should check which menu item was clicked.  We'll probably end up with more menu items soon.
-
 	const urlParts = pageUrl.match(HomestuckURLRegex);
 	const endpoint = urlParts[1];
 	const page     = parseInt(urlParts[3] || '0', 10);
@@ -231,7 +233,7 @@ const LaunchTab = (endpoint = null) => {
 		const story = endpoint ? GetStory(endpoint) : GetActiveStory();
 		jmtyler.log('executing LaunchTab()', story.endpoint);
 
-		let url = `https://www.homestuck.com${story.endpoint}`;
+		let url = `https://www.homestuck.com/${story.endpoint}`;
 		if (story.current) {
 			url += `/${story.current}`;
 		}
@@ -296,11 +298,7 @@ const ShowToast = (type, story, count) => {
 		message += `\n(There are ${count} new pages.)`;
 	}
 
-	chrome.notifications.create({ type: 'basic', title, message, iconUrl, silent: false, requireInteraction: true, buttons: [{ title: 'Read Now' }] }, (id) => {
-		// TODO: This doesn't seem to have an effect.  The toast is clearing itself automatically.
-		// TODO: I think I'd actually like to keep the toast up persistently until they close it.
-		// setTimeout(() => chrome.notifications.clear(id), 10000);
-	});
+	chrome.notifications.create({ type: 'basic', title, message, iconUrl, silent: false, requireInteraction: true, buttons: [{ title: 'Read Now' }] });
 
 	PlaySound();
 };
@@ -362,15 +360,15 @@ const RenderContextMenus = (url) => {
 
 	// HACK: Same as above; need to do this less often.
 	// Refresh the allowable URLs in case we've discovered any new stories.
-	chrome.contextMenus.update('set_active_story', { documentUrlPatterns: endpoints.map((endpoint) => `https://www.homestuck.com${endpoint}/*`) });
-	chrome.contextMenus.update('set_current_page', { documentUrlPatterns: endpoints.map((endpoint) => `https://www.homestuck.com${endpoint}/*`) });
+	chrome.contextMenus.update('set_active_story', { documentUrlPatterns: endpoints.map((endpoint) => `https://www.homestuck.com/${endpoint}/*`) });
+	chrome.contextMenus.update('set_current_page', { documentUrlPatterns: endpoints.map((endpoint) => `https://www.homestuck.com/${endpoint}/*`) });
 
 	if (!url) {
 		return;
 	}
 
 	// TODO: Could use this same regex to pull out the matching endpoint, instead of looping through stories below.
-	const isStoryPage = new RegExp(`^https://www.homestuck.com(${endpoints.join('|')})`).test(url);
+	const isStoryPage = new RegExp(`^https://www.homestuck.com/(${endpoints.join('|')})`).test(url);
 	if (!isStoryPage) {
 		// HACK: Annoyingly, despite including this regex in the context menu's documentUrlPatterns, it still renders on the browser action.
 		chrome.contextMenus.update('set_active_story', { visible: false });
@@ -382,7 +380,7 @@ const RenderContextMenus = (url) => {
 	endpoints.forEach((key) => {
 		const story = stories[key];
 		// TODO: Add urlMatcher to story object.  Make it easy to lookup/match story by URL.  Make it easy to convert a URL into its equivalent story object.
-		const urlMatcher = new RegExp(`^https://www.homestuck.com${story.endpoint}`);
+		const urlMatcher = new RegExp(`^https://www.homestuck.com/${story.endpoint}`);
 
 		if (urlMatcher.test(url)) {
 			if (story.endpoint == activeStory) {
@@ -431,8 +429,7 @@ const InitializeContextMenus = () => {
 	chrome.contextMenus.create({
 		id:                  'set_current_page',
 		title:               'Save as My Current Page',
-		// TODO: Should strongly consider removing the /-prefix from endpoints.
-		documentUrlPatterns: endpoints.map((endpoint) => `https://www.homestuck.com${endpoint}/*`),
+		documentUrlPatterns: endpoints.map((endpoint) => `https://www.homestuck.com/${endpoint}/*`),
 		contexts:            ['all', ],
 		visible:             false,
 	});
@@ -440,7 +437,7 @@ const InitializeContextMenus = () => {
 	chrome.contextMenus.create({
 		id:                  'set_active_story',
 		title:               'Set "???" as Default Story',
-		documentUrlPatterns: endpoints.map((endpoint) => `https://www.homestuck.com${endpoint}/*`),
+		documentUrlPatterns: endpoints.map((endpoint) => `https://www.homestuck.com/${endpoint}/*`),
 		contexts:            ['all'],
 		visible:             false,
 	});

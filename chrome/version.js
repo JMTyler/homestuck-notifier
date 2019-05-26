@@ -1,5 +1,5 @@
 
-// TODO: Really have to go through this and comment... it's confusing as heck.  But it works!
+// TODO: Really have to go through this and comment.
 
 var jmtyler = jmtyler || {};
 jmtyler.version = (() => {
@@ -8,7 +8,7 @@ jmtyler.version = (() => {
 			await new Promise((resolve, reject) => {
 				const req = new XMLHttpRequest();
 				// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
-				// TODO: Remember to point this to the production Heroku server before launch.
+				// BLOCKER: Remember to point this to the production Heroku server before launch.
 				jmtyler.log(`[REQUEST] GET http://127.0.0.1/v1/stories`);
 				req.open('GET', 'http://127.0.0.1/v1/stories', true);
 				req.addEventListener('load', () => {
@@ -20,10 +20,10 @@ jmtyler.version = (() => {
 						return acc;
 					}, {});
 					jmtyler.memory.set('stories', stories);
-					jmtyler.memory.set('active', '/story');
+					jmtyler.memory.set('active', 'story');
 					return resolve();
 				});
-				req.addEventListener('error' /* abort, timeout */, (ev) => console.error('error event:', ev.target));
+				req.addEventListener('error' /* BLOCKER abort, timeout */, (ev) => console.error('error event:', ev.target));
 				req.send();
 			});
 
@@ -34,11 +34,11 @@ jmtyler.version = (() => {
 				const homestuckPage = mspaPage - 1900;
 
 				const stories = jmtyler.memory.get('stories');
-				stories['/story'].current = homestuckPage;
+				stories['story'].current = homestuckPage;
 				jmtyler.memory.set('stories', stories);
 			}
 
-			// TODO: Might need to inspect the 'toast_icon_uri' setting and migrate it, if the user ever changed it then reverted.
+			// BLOCKER: Might need to inspect the 'toast_icon_uri' setting and migrate it, if the user ever changed it then reverted.
 
 			jmtyler.memory.clear('http_last_modified');
 			jmtyler.memory.clear('latest_update');
@@ -51,7 +51,7 @@ jmtyler.version = (() => {
 		return new Promise((resolve, reject) => {
 			const req = new XMLHttpRequest();
 			// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
-			// TODO: Remember to point this to the production Heroku server before launch.
+			// BLOCKER: Remember to point this to the production Heroku server before launch.
 			jmtyler.log(`[REQUEST] GET http://127.0.0.1/v1/stories`);
 			req.open('GET', 'http://127.0.0.1/v1/stories', true);
 			req.addEventListener('load', () => {
@@ -63,10 +63,10 @@ jmtyler.version = (() => {
 					return acc;
 				}, {});
 				jmtyler.memory.set('stories', stories);
-				jmtyler.memory.set('active', '/story');
+				jmtyler.memory.set('active', 'story');
 				return resolve();
 			});
-			req.addEventListener('error' /* abort, timeout */, (ev) => console.error('error event:', ev.target));
+			req.addEventListener('error' /* BLOCKER abort, timeout */, (ev) => console.error('error event:', ev.target));
 			req.send();
 		});
 	};
