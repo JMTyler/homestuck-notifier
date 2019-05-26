@@ -9,8 +9,8 @@ jmtyler.version = (() => {
 				const req = new XMLHttpRequest();
 				// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
 				// TODO: Remember to point this to the production Heroku server before launch.
-				jmtyler.log(`[REQUEST] GET http://127.0.0.1/stories`);
-				req.open('GET', 'http://127.0.0.1/stories', true);
+				jmtyler.log(`[REQUEST] GET http://127.0.0.1/v1/stories`);
+				req.open('GET', 'http://127.0.0.1/v1/stories', true);
 				req.addEventListener('load', () => {
 					jmtyler.log(`[REQUEST] ↳ Raw Payload:`, req.response);
 					let stories = JSON.parse(req.response);
@@ -52,8 +52,8 @@ jmtyler.version = (() => {
 			const req = new XMLHttpRequest();
 			// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
 			// TODO: Remember to point this to the production Heroku server before launch.
-			jmtyler.log(`[REQUEST] GET http://127.0.0.1/stories`);
-			req.open('GET', 'http://127.0.0.1/stories', true);
+			jmtyler.log(`[REQUEST] GET http://127.0.0.1/v1/stories`);
+			req.open('GET', 'http://127.0.0.1/v1/stories', true);
 			req.addEventListener('load', () => {
 				jmtyler.log(`[REQUEST] ↳ Raw Payload:`, req.response);
 				let stories = JSON.parse(req.response);

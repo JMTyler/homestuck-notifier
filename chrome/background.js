@@ -57,7 +57,7 @@ const Main = () => {
 		req.addEventListener('error' /* abort, timeout */, (ev) => console.error('error event:', ev.target));
 		// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
 		// TODO: Remember to point this to the production Heroku server before launch.
-		req.open('POST', 'http://127.0.0.1/subscribe', true);
+		req.open('POST', 'http://127.0.0.1/v1/subscribe', true);
 		req.send(JSON.stringify({ token }));
 
 		// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
