@@ -1,7 +1,7 @@
 
 const HomestuckURLRegex = /^https:\/\/www\.homestuck\.com(\/[a-z/-]+)($|\/([0-9]+))/;
 
-const icons = {
+let icons = {
 	idle:   { '16': 'icons/16.png', '32': 'icons/32.png' },
 	potato: { '16': 'icons/16.png', '32': 'icons/32.png' },
 };
@@ -13,10 +13,10 @@ const Main = () => {
 
 	chrome.browserAction.setBadgeBackgroundColor({ color: '#BB0000' });
 	if (jmtyler.settings.get('is_debug_mode')) {
-		Object.assign(icons, {
+		icons = {
 			idle:   { '16': 'icons/2B_16.png', '32': 'icons/2B_32.png' },
 			potato: { '16': 'icons/2B_16.png', '32': 'icons/2B_32.png' },
-		});
+		};
 		chrome.browserAction.setBadgeBackgroundColor({ color: '#00AA00' });
 
 		// Make some key functions globally accessible for debug mode.
@@ -30,66 +30,20 @@ const Main = () => {
 	const story = GetActiveStory();
 	RenderButton({ icon: 'idle', story, count: story.pages - story.current });
 
-	chrome.contextMenus.create({
-		id:       'jump_to',
-		title:    'Jump to Story...',
-		contexts: ['browser_action'],
-	});
-
-	// TODO: Reverse the order of these badbois.  Also have to update their titles whenever their current page changes.
-	const stories = jmtyler.memory.get('stories');
-	Object.keys(stories).forEach((key) => {
-		const story = stories[key];
-		const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
-		chrome.contextMenus.create({
-			parentId: 'jump_to',
-			id:       `goto_${story.endpoint}`,
-			title:    `${fullTitle} (pg. ${story.current})`,
-			contexts: ['browser_action'],
-		});
-	});
-
-	// chrome.contextMenus.create({
-	// 	type:     'separator',
-	// 	id:       'separator',
-	// 	contexts: ['browser_action'],
-	// });
-
-	// TODO: Force this to match ONLY story pages, and remove/re-create the context menu when new stories appear.
 	// TODO: Maybe call Sync after this, to make sure their initial value respects the initial tab state?
-	chrome.contextMenus.create({
-		id:                  'set_current',
-		title:               'Save as My Current Page',
-		documentUrlPatterns: ['https://www.homestuck.com/*'],
-		contexts:            ['all'],
-	});
+	InitializeContextMenus();
+	RenderContextMenus();
 
-	chrome.contextMenus.create({
-		id:                  'set_active',
-		title:               `Set "Problem Sleuth" as Default Story`,
-		documentUrlPatterns: ['https://www.homestuck.com/*'],
-		contexts:            ['all'],
-	});
-
-	chrome.contextMenus.create({
-		type:     'separator',
-		contexts: ['browser_action'],
-	});
-
-	chrome.contextMenus.create({
-		id:       'toggle_page_counts',
-		title:    `${jmtyler.settings.get('show_page_count') ? 'Hide' : 'Show'} Page Count`,
-		contexts: ['browser_action'],
-	});
-
+	// TODO: Apparently listeners must be registered synchronously, before we can convert this background script to an event script.
 	chrome.contextMenus.onClicked.addListener(OnMenuClick);
+	// TODO: If an extension is listening for the tabs.onUpdated event, try using the webNavigation.onCompleted event with filters instead, as the tabs API does not support filters.
 	chrome.tabs.onActivated.addListener(OnTabChange);
 	chrome.tabs.onUpdated.addListener(OnPageLoad);
 	chrome.browserAction.onClicked.addListener(() => LaunchTab());
 	chrome.notifications.onClicked.addListener(OnNotificationClick);
 	chrome.notifications.onButtonClicked.addListener(OnNotificationClick);
 	// TODO: Probably just switch this out for an event emitter or something.
-	chrome.runtime.onMessage.addListener(({ method, args = {} }) => (OnMessage[method] ? OnMessage[method](args) : OnMessage.Unknown()));
+	chrome.runtime.onMessage.addListener(({ method, args = {} }) => (OnMessage[method] ? OnMessage[method](args) : OnMessage.Unknown(method, args)));
 
 	// const vapidKey = 'BB0WW0ANGE7CquFTQC0n68DmkVrInd616DEi3pI5Yq8IKHv0v9qhvzkAInBjEw2zNfgx29JB2DAQkV_81ztYpTg';
 	// chrome.gcm.register([ vapidKey ], (registrationId) => {
@@ -104,14 +58,17 @@ const Main = () => {
 		// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
 		// TODO: Remember to point this to the production Heroku server before launch.
 		req.open('POST', 'http://127.0.0.1/subscribe', true);
-		// req.send(JSON.stringify({ token }));
+		req.send(JSON.stringify({ token }));
 
 		// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
 		// TODO: For some features, we must specify a lowest supported Chrome version.  Will that allow us to use ES6 features too?
 		// TODO: What happens if we were offline during a ping?  Does it arrive later?  Do we have to fetch explicitly?
-		chrome.gcm.onMessage.addListener(({ data }) => {
-			console.log('received gcm message', data);
-			OnMessage.Potato(data);
+		chrome.gcm.onMessage.addListener(({ data: { event, ...args } }) => {
+			console.log('received gcm message', event, args);
+			if (OnMessage[event]) {
+				return OnMessage[event](args);
+			}
+			return OnMessage.Unknown(event, args);
 		});
 	});
 };
@@ -139,32 +96,58 @@ const OnMessage = {
 		stories[endpoint].pages = page;
 		jmtyler.memory.set('stories', stories);
 
-		// TODO: Shouldn't push the story into the button unless it's the user's active story.
-		RenderButton({ icon: 'potato', story: stories[endpoint] });
+		RenderButton({ icon: 'potato' });
+		TouchButton();
+		RenderContextMenus();
 		ShowToast(toastType, stories[endpoint], potatoSize);
+	},
+	SyncStory({ story: title, arc: subtitle, endpoint, page: pages }) {
+		const stories = jmtyler.memory.get('stories');
+		Object.assign(stories[endpoint], {
+			endpoint,
+			title,
+			subtitle: subtitle || null,
+			pages,
+		});
+		jmtyler.memory.set('stories', stories);
+		RenderContextMenus();
+		TouchButton();
 	},
 	OnSettingsChange() {
 		TouchButton();
-		chrome.contextMenus.update('toggle_page_counts', { title: `${jmtyler.settings.get('show_page_count') ? 'Hide' : 'Show'} Page Count` });
+		chrome.contextMenus.update('toggle_page_counts', { checked: jmtyler.settings.get('show_page_count') });
 	},
-	Unknown() {
-		jmtyler.log('An unknown Runtime Message was received and therefore could not be processed.');
+	Unknown(method, args) {
+		jmtyler.log('An unknown Runtime Message was received and therefore could not be processed:', method, args);
 	},
 };
 
-const OnMenuClick = ({ menuItemId, ...info }) => {
-	if (menuItemId == 'set_current') {
-		return OnOverrideLastPageRead(info);
+const OnMenuClick = async ({ menuItemId, pageUrl }) => {
+	if (!pageUrl) {
+		// HACK: `pageUrl` doesn't exist if they click the menu via the browser action. FML.
+		await new Promise((resolve) => {
+			// This is how chrome.tabs.getCurrent() _should_ work, but apparently I have to do it myself.
+			chrome.tabs.query({ active: true, currentWindow: true }, ([{ url }]) => {
+				// TODO: Prooobably shouldn't assume this will find a tab in 100% of cases.
+				pageUrl = url;
+				return resolve();
+			});
+		});
 	}
-	if (menuItemId == 'set_active') {
+
+	if (menuItemId == 'set_current_page') {
+		return OnOverrideLastPageRead(pageUrl);
+	}
+	if (menuItemId == 'set_active_story') {
 		const stories = jmtyler.memory.get('stories');
 		Object.keys(stories).forEach((key) => {
 			const story = stories[key];
 			const urlMatcher = new RegExp(`^https://www.homestuck.com${story.endpoint}`);
 
-			if (urlMatcher.test(info.pageUrl)) {
-				// TODO: Update browser action title with new active story info.
+			if (urlMatcher.test(pageUrl)) {
 				jmtyler.memory.set('active', story.endpoint);
+				RenderContextMenus(pageUrl);
+				TouchButton();
 			}
 		});
 		return;
@@ -180,7 +163,7 @@ const OnMenuClick = ({ menuItemId, ...info }) => {
 	// TODO unknown menu item
 };
 
-const OnOverrideLastPageRead = ({ pageUrl }) => {
+const OnOverrideLastPageRead = (pageUrl) => {
 	// TODO: We should check which menu item was clicked.  We'll probably end up with more menu items soon.
 
 	const urlParts = pageUrl.match(HomestuckURLRegex);
@@ -194,11 +177,12 @@ const OnOverrideLastPageRead = ({ pageUrl }) => {
 	}
 
 	MarkPage(endpoint, page);
+	RenderContextMenus(pageUrl);
 };
 
 const OnTabChange = ({ tabId }) => {
 	chrome.tabs.get(tabId, ({ url }) => {
-		SyncContextMenu(url);
+		RenderContextMenus(url);
 	});
 };
 
@@ -207,8 +191,6 @@ const OnPageLoad = (_tabId, { url: currentPageUrl }) => {
 		console.log('no page url');
 		return;
 	}
-
-	SyncContextMenu(currentPageUrl);
 
 	// This listener isn't triggered AFTER a regex filter like the context menu, so we must validate it ourselves.
 	const urlParts = currentPageUrl.match(HomestuckURLRegex);
@@ -230,10 +212,13 @@ const OnPageLoad = (_tabId, { url: currentPageUrl }) => {
 	if (currentPage > story.current) {
 		MarkPage(currentEndpoint, currentPage);
 	}
+
+	RenderContextMenus(currentPageUrl);
 };
 
 const OnNotificationClick = (id) => {
 	chrome.notifications.clear(id);
+	// TODO: Should probably launch whatever story they just clicked.
 	LaunchTab();
 };
 
@@ -346,7 +331,8 @@ const RenderButton = ({ icon: iconKey, count, story }) => {
 	if (story) {
 		const fullTitle = [story.title, story.subtitle].filter((v) => v).join(' - ');
 		const status = `Currently reading: ${fullTitle}\nOn Page #${story.current}`;
-		chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n' + status });
+		// chrome.browserAction.setTitle({ title: chrome.runtime.getManifest().name + '\n\n' + status });
+		chrome.browserAction.setTitle({ title: status });
 	}
 };
 
@@ -355,33 +341,117 @@ const TouchButton = () => {
 	RenderButton({ story, count: story.pages - story.current });
 };
 
-const SyncContextMenu = (url) => {
-	const activeStory = jmtyler.memory.get('active');
+const RenderContextMenus = (url) => {
 	const stories = jmtyler.memory.get('stories');
+	const endpoints = Object.keys(stories);
 
-	console.log(`^https://www.homestuck.com(${Object.keys(stories).join('|')})`);
-	const visible = new RegExp(`^https://www.homestuck.com(${Object.keys(stories).join('|')})`).test(url);
-	chrome.contextMenus.update('set_current', { visible });
-
-	if (!visible) {
-		chrome.contextMenus.update('set_active', { visible });
-	} else {
-		Object.keys(stories).forEach((key) => {
-			const story = stories[key];
-			// TODO: Add urlMatcher to story object.  Make it easy to lookup/match story by URL.  Make it easy to convert a URL into its equivalent story object.
-			const urlMatcher = new RegExp(`^https://www.homestuck.com${story.endpoint}`);
-
-			if (urlMatcher.test(url)) {
-				// TODO: Also check the page # against story.current to hide the other menu item as well.
-				if (story.endpoint == activeStory) {
-					chrome.contextMenus.update('set_active', { visible: false });
-				} else {
-					const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
-					chrome.contextMenus.update('set_active', { visible, title: `Set "${fullTitle}" as Default Story` });
-				}
-			}
+	// HACK: It's super inefficient to do this so often, but we need to release ASAP and we can clean it up later.
+	endpoints.reverse().forEach((key) => {
+		const story = stories[key];
+		const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
+		chrome.contextMenus.remove(`goto_${story.endpoint}`, () => {
+			// TODO: There will be console errors here since we're not checking runtime.lastError.
+			chrome.contextMenus.create({
+				parentId: 'jump_to',
+				id:       `goto_${story.endpoint}`,
+				title:    `${fullTitle} (pg. ${story.current})`,
+				contexts: ['browser_action'],
+			});
 		});
+	});
+
+	// HACK: Same as above; need to do this less often.
+	// Refresh the allowable URLs in case we've discovered any new stories.
+	chrome.contextMenus.update('set_active_story', { documentUrlPatterns: endpoints.map((endpoint) => `https://www.homestuck.com${endpoint}/*`) });
+	chrome.contextMenus.update('set_current_page', { documentUrlPatterns: endpoints.map((endpoint) => `https://www.homestuck.com${endpoint}/*`) });
+
+	if (!url) {
+		return;
 	}
+
+	// TODO: Could use this same regex to pull out the matching endpoint, instead of looping through stories below.
+	const isStoryPage = new RegExp(`^https://www.homestuck.com(${endpoints.join('|')})`).test(url);
+	if (!isStoryPage) {
+		// HACK: Annoyingly, despite including this regex in the context menu's documentUrlPatterns, it still renders on the browser action.
+		chrome.contextMenus.update('set_active_story', { visible: false });
+		chrome.contextMenus.update('set_current_page', { visible: false });
+		return;
+	}
+
+	const activeStory = jmtyler.memory.get('active');
+	endpoints.forEach((key) => {
+		const story = stories[key];
+		// TODO: Add urlMatcher to story object.  Make it easy to lookup/match story by URL.  Make it easy to convert a URL into its equivalent story object.
+		const urlMatcher = new RegExp(`^https://www.homestuck.com${story.endpoint}`);
+
+		if (urlMatcher.test(url)) {
+			if (story.endpoint == activeStory) {
+				chrome.contextMenus.update('set_active_story', { visible: false });
+			} else {
+				const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
+				chrome.contextMenus.update('set_active_story', { visible: true, title: `Set "${fullTitle}" as Default Story` });
+			}
+
+			let { groups: { page } } = url.match(/^https:\/\/www.homestuck.com[^\d]*(?<page>\d*)$/);
+			page = parseInt(page || "0", 10);
+			if (story.current == page) {
+				chrome.contextMenus.update('set_current_page', { visible: false });
+			} else {
+				chrome.contextMenus.update('set_current_page', { visible: true });
+			}
+		}
+	});
+};
+
+const InitializeContextMenus = () => {
+	chrome.contextMenus.create({
+		id:       'jump_to',
+		title:    'Jump to Story...',
+		contexts: ['browser_action'],
+	});
+
+	const stories = jmtyler.memory.get('stories');
+	const endpoints = Object.keys(stories);
+	endpoints.reverse().forEach((key) => {
+		const story = stories[key];
+		const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
+		chrome.contextMenus.create({
+			parentId: 'jump_to',
+			id:       `goto_${story.endpoint}`,
+			title:    `${fullTitle} (pg. ${story.current})`,
+			contexts: ['browser_action'],
+		});
+	});
+
+	chrome.contextMenus.create({
+		type:     'separator',
+		contexts: ['browser_action'],
+	});
+
+	chrome.contextMenus.create({
+		id:                  'set_current_page',
+		title:               'Save as My Current Page',
+		// TODO: Should strongly consider removing the /-prefix from endpoints.
+		documentUrlPatterns: endpoints.map((endpoint) => `https://www.homestuck.com${endpoint}/*`),
+		contexts:            ['all', ],
+		visible:             false,
+	});
+
+	chrome.contextMenus.create({
+		id:                  'set_active_story',
+		title:               'Set "???" as Default Story',
+		documentUrlPatterns: endpoints.map((endpoint) => `https://www.homestuck.com${endpoint}/*`),
+		contexts:            ['all'],
+		visible:             false,
+	});
+
+	chrome.contextMenus.create({
+		type:     'checkbox',
+		checked:  jmtyler.settings.get('show_page_count'),
+		id:       'toggle_page_counts',
+		title:    'Show Page Count',
+		contexts: ['browser_action'],
+	});
 };
 
 const ClearData = () => {

@@ -82,6 +82,7 @@ $(function() {
 	$('#btnReset').on('click', function() {
 		jmtyler.settings.clear();
 		_initializeSettings();
+		chrome.runtime.sendMessage({ method: 'OnSettingsChange' });
 	});
 
 	_initializeSettings();
