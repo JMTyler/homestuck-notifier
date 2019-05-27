@@ -98,10 +98,18 @@ jmtyler.settings = (function()
 	};
 })();
 
-// TODO: Move this to a better spot, but it still must realistically depend on jmtyler.settings
-jmtyler.log = function()
-{
+// TODO: Move these to a better spot, but they still must realistically depend on jmtyler.settings
+jmtyler.log = (...args) => {
 	if (jmtyler.settings.get('is_debug_mode')) {
-		console.log.apply(console, arguments);
+		console.log(...args);
 	}
+};
+
+jmtyler.api = (endpoint) => {
+	let baseUrl = 'https://homestuck.herokuapp.com/v1';
+	if (jmtyler.settings.get('is_debug_mode')) {
+		// TODO: Debug mode in-the-wild could point to a separate Staging API (or even ngrok if I can manage it).
+		baseUrl = 'http://127.0.0.1/v1';
+	}
+	return `${baseUrl}/${endpoint}`;
 };

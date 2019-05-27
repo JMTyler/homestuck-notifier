@@ -6,11 +6,9 @@ jmtyler.version = (() => {
 	const migrations = {
 		'1557880371381 - 2.0.0 - Migrate from MSPA to Homestuck.com': async () => {
 			await new Promise((resolve, reject) => {
-				jmtyler.log(`[REQUEST] GET http://127.0.0.1/v1/stories`);
+				jmtyler.log(`[REQUEST] GET ${jmtyler.api('stories')}`);
 				const req = new XMLHttpRequest();
-				// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
-				// BLOCKER: Remember to point this to the production Heroku server before launch.
-				req.open('GET', 'http://127.0.0.1/v1/stories', true);
+				req.open('GET', jmtyler.api('stories'), true);
 				req.addEventListener('load', () => {
 					jmtyler.log(`[REQUEST] ↳ Raw Payload:`, req.response);
 					let stories = JSON.parse(req.response);
@@ -53,11 +51,9 @@ jmtyler.version = (() => {
 
 	const runFreshInstall = () => {
 		return new Promise((resolve, reject) => {
-			jmtyler.log(`[REQUEST] GET http://127.0.0.1/v1/stories`);
+			jmtyler.log(`[REQUEST] GET ${jmtyler.api('stories')}`);
 			const req = new XMLHttpRequest();
-			// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
-			// BLOCKER: Remember to point this to the production Heroku server before launch.
-			req.open('GET', 'http://127.0.0.1/v1/stories', true);
+			req.open('GET', jmtyler.api('stories'), true);
 			req.addEventListener('load', () => {
 				jmtyler.log(`[REQUEST] ↳ Raw Payload:`, req.response);
 				let stories = JSON.parse(req.response);
