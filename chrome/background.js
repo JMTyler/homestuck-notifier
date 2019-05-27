@@ -59,7 +59,6 @@ const Main = () => {
 		req.send(JSON.stringify({ token }));
 
 		// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
-		// BLOCKER: For some features, we must specify a lowest supported Chrome version.  Will that allow us to use ES6 features too?
 		// BLOCKER: What happens if we were offline during a ping?  Does it arrive later?  Do we have to fetch explicitly?
 		chrome.gcm.onMessage.addListener(({ data: { event, ...args } }) => {
 			console.log('received gcm message', event, args);
