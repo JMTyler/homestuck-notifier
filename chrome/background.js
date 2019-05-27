@@ -50,9 +50,11 @@ const Main = () => {
 		jmtyler.log('registered with gcm', token || chrome.runtime.lastError.message);
 
 		// Upload token to server, subscribing to the FCM topic.
+		jmtyler.log(`[REQUEST] POST http://127.0.0.1/v1/subscribe`);
 		const req = new XMLHttpRequest();
-		req.addEventListener('load', (ev) => jmtyler.log('load event:', ev.target));
-		req.addEventListener('error' /* BLOCKER abort, timeout */, (ev) => console.error('error event:', ev.target));
+		req.addEventListener('error',   (ev) => console.error('[REQUEST] ↳ Error:', ev, req));
+		req.addEventListener('abort',   (ev) => console.error('[REQUEST] ↳ Abort:', ev, req));
+		req.addEventListener('timeout', (ev) => console.error('[REQUEST] ↳ Timeout:', ev, req));
 		// TODO: Debug mode should point to a separate Staging API (or even ngrok if I can manage it).
 		// BLOCKER: Remember to point this to the production Heroku server before launch.
 		req.open('POST', 'http://127.0.0.1/v1/subscribe', true);
