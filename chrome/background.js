@@ -74,15 +74,16 @@ const Main = () => {
 
 const OnMessage = {
 	Potato({ endpoint, title, subtitle, pages }) {
+		pages = parseInt(pages, 10);
 		let toastType = 'new_pages';
 		const stories = jmtyler.memory.get('stories');
 		if (!stories[endpoint]) {
 			stories[endpoint] = {
 				endpoint,
 				title,
-				subtitle: subtitle || null,
-				pages:    0,
-				current:  0,
+				subtitle,
+				pages:   0,
+				current: 0,
 			};
 
 			toastType = 'new_story';
@@ -106,8 +107,7 @@ const OnMessage = {
 		ShowToast(toastType, stories[endpoint], potatoSize);
 	},
 	SyncStory(story) {
-		// BLOCKER: Do we really need this to be null?  Can we just leave it as an empty string?
-		if (!story.subtitle) story.subtitle = null;
+		story.pages = parseInt(story.pages, 10);
 		const stories = jmtyler.memory.get('stories');
 		Object.assign(stories[story.endpoint], story);
 		jmtyler.memory.set('stories', stories);
