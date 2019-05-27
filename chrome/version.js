@@ -15,8 +15,8 @@ jmtyler.version = (() => {
 					jmtyler.log(`[REQUEST] ↳ Raw Payload:`, req.response);
 					let stories = JSON.parse(req.response);
 					jmtyler.log(`[REQUEST] ↳ Parsed Payload:`, stories);
-					stories = stories.reduce((acc, { endpoint, story: title, arc: subtitle, page: pages }) => {
-						acc[endpoint] = { endpoint, title, subtitle, pages, current: 0 };
+					stories = stories.reduce((acc, story) => {
+						acc[story.endpoint] = Object.assign(story, { current: 0 });
 						return acc;
 					}, {});
 					jmtyler.memory.set('stories', stories);
@@ -62,8 +62,8 @@ jmtyler.version = (() => {
 				jmtyler.log(`[REQUEST] ↳ Raw Payload:`, req.response);
 				let stories = JSON.parse(req.response);
 				jmtyler.log(`[REQUEST] ↳ Parsed Payload:`, stories);
-				stories = stories.reduce((acc, { endpoint, story: title, arc: subtitle, page: pages }) => {
-					acc[endpoint] = { endpoint, title, subtitle, pages, current: 0 };
+				stories = stories.reduce((acc, story) => {
+					acc[story.endpoint] = Object.assign(story, { current: 0 });
 					return acc;
 				}, {});
 				jmtyler.memory.set('stories', stories);

@@ -75,7 +75,7 @@ const Main = () => {
 /* Event Handlers */
 
 const OnMessage = {
-	Potato({ story: title, arc: subtitle, endpoint, page }) {
+	Potato({ endpoint, title, subtitle, pages }) {
 		let toastType = 'new_pages';
 		const stories = jmtyler.memory.get('stories');
 		if (!stories[endpoint]) {
@@ -88,32 +88,30 @@ const OnMessage = {
 			};
 
 			toastType = 'new_story';
-			for (const story of stories) {
-				if (story.title == title) {
+			for (const key in stories) {
+				// HACK: We really should have a more explicit record of known stories vs. arcs.
+				if (stories[key].title == title) {
 					toastType = 'new_arc';
 					break;
 				}
 			}
 		}
 
-		stories[endpoint].pages = page;
+		const potatoSize = pages - stories[endpoint].pages;
+		stories[endpoint].pages = pages;
 		jmtyler.memory.set('stories', stories);
 
 		RenderButton({ icon: 'potato' });
 		TouchButton();
 		RenderContextMenus();
 
-		const potatoSize = page - stories[endpoint].pages;
 		ShowToast(toastType, stories[endpoint], potatoSize);
 	},
-	SyncStory({ story: title, arc: subtitle, endpoint, page: pages }) {
+	SyncStory(story) {
+		// BLOCKER: Do we really need this to be null?  Can we just leave it as an empty string?
+		if (!story.subtitle) story.subtitle = null;
 		const stories = jmtyler.memory.get('stories');
-		Object.assign(stories[endpoint], {
-			endpoint,
-			title,
-			subtitle: subtitle || null,
-			pages,
-		});
+		Object.assign(stories[story.endpoint], story);
 		jmtyler.memory.set('stories', stories);
 		RenderContextMenus();
 		TouchButton();
