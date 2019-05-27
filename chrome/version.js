@@ -40,7 +40,9 @@ jmtyler.version = (() => {
 				jmtyler.memory.set('stories', stories);
 			}
 
-			// BLOCKER: Might need to inspect the 'toast_icon_uri' setting and migrate it, if the user ever changed it then reverted.
+			if (jmtyler.settings.get('toast_icon_uri') == '48.png') {
+				jmtyler.settings.set('toast_icon_uri', 'icons/48.png');
+			}
 
 			jmtyler.memory.clear('http_last_modified');
 			jmtyler.memory.clear('latest_update');

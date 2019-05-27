@@ -10,7 +10,6 @@ jmtyler.settings = (function()
 	var _defaults = {
 		'notifications_on' : true,
 		'show_page_count'  : false,
-		// BLOCKER: Has the default value of toast_icon_uri changed and need to be migrated?
 		'toast_icon_uri'   : 'icons/48.png',
 		'is_debug_mode'    : false
 	};
