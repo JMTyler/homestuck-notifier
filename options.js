@@ -2,26 +2,12 @@
 $(function() {
 	var toastIconUri = null,
 		toastSoundUri = null;
-	
+
 	$('#lblVersion').text(chrome.runtime.getManifest().version);
-	
+
 	$('#radToast').buttonset();
 	$('#radShowCount').buttonset();
-	$('#sldFrequency').slider({
-		range: 'min',
-		value: 1,
-		min: 1,  // TODO: could hypothetically get first and last elements from Options.map()
-		max: 10,
-		slide: function(event, ui) {
-			$('#lblFrequency').text("every " + jmtyler.settings.map('check_frequency', ui.value).readable);
-		}
-	});
-	
-	$('#btnForceCheck').button();
-	$('#btnForceCheck').on('click', function() {
-		chrome.extension.sendRequest({method: 'forceCheck'});
-	});
-	
+
 	$('#fileToastIcon').on('change', function(event) {
 		var file = event.target.files[0];  // TODO: can this array be empty?
 		if (!file.type.match('image.*')) {
@@ -36,7 +22,7 @@ $(function() {
 		};
 		fileReader.readAsDataURL(file);
 	});
-	
+
 	$('#fileToastSound').on('change', function(event) {
 		var file = event.target.files[0];  // TODO: can this array be empty?
 		if (!file.type.match('audio.*')) {
@@ -52,7 +38,7 @@ $(function() {
 		};
 		fileReader.readAsDataURL(file);
 	});
-	
+
 	var _initializeSettings = function()
 	{
 		var areNotificationsOn = jmtyler.settings.get('notifications_on');
@@ -62,7 +48,7 @@ $(function() {
 			$('#radToastOff').prop('checked', true);
 		}
 		$('#radToastOff').button('refresh');
-		
+
 		var doShowPageCount = jmtyler.settings.get('show_page_count');
 		if (doShowPageCount) {
 			$('#radShowCountOn').prop('checked', true);
@@ -70,42 +56,34 @@ $(function() {
 			$('#radShowCountOff').prop('checked', true);
 		}
 		$('#radShowCountOff').button('refresh');
-		
-		var checkFrequency = jmtyler.settings.get('check_frequency');
-		$('#sldFrequency').slider('value', checkFrequency);
-		$('#lblFrequency').text("every " + jmtyler.settings.map('check_frequency').readable);
-		
+
 		toastIconUri = jmtyler.settings.get('toast_icon_uri');
 		$('#imgToastIcon').prop('src', toastIconUri);
-		
+
 		toastSoundUri = jmtyler.settings.get('toast_sound_uri');
 		$('#audToastSound').prop('src', toastSoundUri);
-		
-		var isDebugMode = jmtyler.settings.get('is_debug_mode');
-		$('#hdnDebugMode').val(isDebugMode ? 1 : 0);
 	};
-	
+
 	// TODO: eventually implement live edit
 	$('#btnSave').button();
 	$('#btnSave').on('click', function() {
 		var areNotificationsOn = $('#radToast :radio:checked').val() == 'on',
-			doShowPageCount    = $('#radShowCount :radio:checked').val() == 'on',
-			checkFrequency     = $('#sldFrequency').slider('value'),
-			isDebugMode        = $('#hdnDebugMode').val() == 1;
-		
+			doShowPageCount    = $('#radShowCount :radio:checked').val() == 'on';
+
 		jmtyler.settings.set('notifications_on', areNotificationsOn)
 			.set('show_page_count', doShowPageCount)
-			.set('check_frequency', checkFrequency)
 			.set('toast_icon_uri', toastIconUri)
-			.set('toast_sound_uri', toastSoundUri)
-			.set('is_debug_mode', isDebugMode);
+			.set('toast_sound_uri', toastSoundUri);
+
+		chrome.runtime.sendMessage({ method: 'OnSettingsChange' });
 	});
-	
+
 	$('#btnReset').button();
 	$('#btnReset').on('click', function() {
 		jmtyler.settings.clear();
 		_initializeSettings();
+		chrome.runtime.sendMessage({ method: 'OnSettingsChange' });
 	});
-	
+
 	_initializeSettings();
 });
