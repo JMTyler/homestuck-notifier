@@ -181,7 +181,6 @@ const OnTabChange = ({ tabId }) => {
 
 const OnPageLoad = (_tabId, { url: currentPageUrl }) => {
 	if (!currentPageUrl) {
-		console.log('no page url');
 		return;
 	}
 
