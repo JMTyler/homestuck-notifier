@@ -37,7 +37,7 @@ jmtyler.version = (() => {
 
 			chrome.notifications.create({
 				title:   'MSPA Notifier',
-				message: 'finally works again and is now Homestuck Notifier!\n- It will notify you of any more future Epilogues. ;)',
+				message: 'finally works again! It is now called Homestuck Notifier.\n- Plus, it will notify you of any more future Epilogues. ;)',
 				iconUrl: jmtyler.settings.get('toast_icon_uri'),
 				type:    'basic',
 				silent:  true,

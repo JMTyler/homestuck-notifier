@@ -54,7 +54,6 @@ const Main = () => {
 	});
 
 	// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
-	// BLOCKER: What happens if we were offline during a ping?  Does it arrive later?  Do we have to fetch explicitly?
 	chrome.gcm.onMessage.addListener(({ data: { event, ...args } }) => {
 		jmtyler.log('received gcm message', event, args);
 		if (OnMessage[event]) {
