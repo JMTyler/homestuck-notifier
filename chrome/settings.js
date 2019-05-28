@@ -100,6 +100,7 @@ jmtyler.settings = (function()
 
 // TODO: Move these to a better spot, but they still must realistically depend on jmtyler.settings
 jmtyler.log = (...args) => {
+	// TODO: Add a production-debug mode that uploads logs to me.
 	if (jmtyler.settings.get('is_debug_mode')) {
 		console.log(...args);
 	}
@@ -112,4 +113,51 @@ jmtyler.api = (endpoint) => {
 		baseUrl = 'http://127.0.0.1/v1';
 	}
 	return `${baseUrl}/${endpoint}`;
+};
+
+jmtyler.request = (method, endpoint, payload) => {
+	const url = jmtyler.api(endpoint);
+
+	jmtyler.log(`[REQUEST] ${method} ${url} -- ${JSON.stringify(payload || {})}`);
+
+	return new Promise((resolve, reject) => {
+		const req = new XMLHttpRequest();
+
+		req.open(method, url, true);
+
+		const captureError = (issue, ev) => {
+			jmtyler.log(`[REQUEST] ↳ ${issue}:`, ev);
+			const err = new Error(`Request ${issue}`);
+			err.event = ev;
+			return reject(err);
+		};
+		req.addEventListener('error',   (ev) => captureError('Error', ev));
+		req.addEventListener('abort',   (ev) => captureError('Aborted', ev));
+		// BLOCKER: Implement retries w/ exponential backoff for timeout and !200 and possibly other cases.
+		req.addEventListener('timeout', (ev) => captureError('Timed Out', ev));
+
+		req.addEventListener('load', () => {
+			if (req.status != 200) {
+				jmtyler.log(`[REQUEST] ↳ Failed: (Status ${req.status}), (Response: "${req.response}")`, req);
+				const err = new Error('Request Failed');
+				err.status = req.status;
+				err.response = req.response;
+				return reject(err);
+			}
+
+			try {
+				jmtyler.log(`[REQUEST] ↳ Raw Payload:`, req.response);
+				const res = JSON.parse(req.response || '{}');
+				jmtyler.log(`[REQUEST] ↳ Parsed Payload:`, res);
+				return resolve(res);
+			} catch (err) {
+				jmtyler.log(`[REQUEST] ↳ Failed to Parse Response:`, err, req);
+				return reject(err);
+			}
+		});
+
+		req.setRequestHeader('Cache-Control', 'no-cache');
+		req.setRequestHeader('Content-Type', 'application/json');
+		req.send(JSON.stringify(payload || {}));
+	});
 };

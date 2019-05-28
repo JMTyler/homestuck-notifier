@@ -49,24 +49,18 @@ const Main = () => {
 	chrome.instanceID.getToken({ authorizedEntity: '710329635775', scope: 'GCM' }, (token) => {
 		jmtyler.log('registered with gcm', token || chrome.runtime.lastError.message);
 
-		// Upload token to server, subscribing to the FCM topic.
-		jmtyler.log(`[REQUEST] POST ${jmtyler.api('subscribe')}`);
-		const req = new XMLHttpRequest();
-		req.addEventListener('error',   (ev) => console.error('[REQUEST] ↳ Error:', ev, req));
-		req.addEventListener('abort',   (ev) => console.error('[REQUEST] ↳ Abort:', ev, req));
-		req.addEventListener('timeout', (ev) => console.error('[REQUEST] ↳ Timeout:', ev, req));
-		req.open('POST', jmtyler.api('subscribe'), true);
-		req.send(JSON.stringify({ token }));
+		// Subscribe our new token to FCM.
+		jmtyler.request('POST', 'subscribe', { token });
+	});
 
-		// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
-		// BLOCKER: What happens if we were offline during a ping?  Does it arrive later?  Do we have to fetch explicitly?
-		chrome.gcm.onMessage.addListener(({ data: { event, ...args } }) => {
-			console.log('received gcm message', event, args);
-			if (OnMessage[event]) {
-				return OnMessage[event](args);
-			}
-			return OnMessage.Unknown(event, args);
-		});
+	// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
+	// BLOCKER: What happens if we were offline during a ping?  Does it arrive later?  Do we have to fetch explicitly?
+	chrome.gcm.onMessage.addListener(({ data: { event, ...args } }) => {
+		jmtyler.log('received gcm message', event, args);
+		if (OnMessage[event]) {
+			return OnMessage[event](args);
+		}
+		return OnMessage.Unknown(event, args);
 	});
 };
 

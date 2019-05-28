@@ -5,41 +5,25 @@ var jmtyler = jmtyler || {};
 jmtyler.version = (() => {
 	const migrations = {
 		'1557880371381 - 2.0.0 - Migrate from MSPA to Homestuck.com': async () => {
-			await new Promise((resolve, reject) => {
-				jmtyler.log(`[REQUEST] GET ${jmtyler.api('stories')}`);
-				const req = new XMLHttpRequest();
-				req.open('GET', jmtyler.api('stories'), true);
-				req.addEventListener('load', () => {
-					jmtyler.log(`[REQUEST] ↳ Raw Payload:`, req.response);
-					let stories = JSON.parse(req.response);
-					jmtyler.log(`[REQUEST] ↳ Parsed Payload:`, stories);
-					stories = stories.reduce((acc, story) => {
-						acc[story.endpoint] = Object.assign(story, { current: 0 });
-						return acc;
-					}, {});
-					jmtyler.memory.set('stories', stories);
-					jmtyler.memory.set('active', 'story');
-					return resolve();
-				});
-				req.addEventListener('error',   (ev) => console.error('[REQUEST] ↳ Error:', ev, req));
-				req.addEventListener('abort',   (ev) => console.error('[REQUEST] ↳ Abort:', ev, req));
-				req.addEventListener('timeout', (ev) => console.error('[REQUEST] ↳ Timeout:', ev, req));
-				req.send();
-			});
+			// BLOCKER: Try/catch
+			const response = await jmtyler.request('GET', 'stories');
+			const stories = response.reduce((stories, story) => {
+				story.current = 0;
+				return Object.assign(stories, { [story.endpoint]: story });
+			}, {});
 
 			const lastPageRead = jmtyler.memory.get('last_page_read');
 			const matches = lastPageRead ? lastPageRead.match(/^http:\/\/www\.mspaintadventures\.com\/?.*\?s=6&p=(\d+)/) : null;
 			if (matches !== null) {
 				const mspaPage = parseInt(matches[1], 10);
 				const homestuckPage = mspaPage - 1900;
-
-				const stories = jmtyler.memory.get('stories');
 				stories['story'].current = homestuckPage;
-				jmtyler.memory.set('stories', stories);
 			}
+			jmtyler.memory.set('stories', stories);
+			jmtyler.memory.set('active', 'story');
 
 			if (jmtyler.settings.get('toast_icon_uri') == '48.png') {
-				jmtyler.settings.set('toast_icon_uri', 'icons/48.png');
+				jmtyler.settings.clear('toast_icon_uri');
 			}
 
 			jmtyler.memory.clear('http_last_modified');
@@ -49,28 +33,16 @@ jmtyler.version = (() => {
 		},
 	};
 
-	const runFreshInstall = () => {
-		return new Promise((resolve, reject) => {
-			jmtyler.log(`[REQUEST] GET ${jmtyler.api('stories')}`);
-			const req = new XMLHttpRequest();
-			req.open('GET', jmtyler.api('stories'), true);
-			req.addEventListener('load', () => {
-				jmtyler.log(`[REQUEST] ↳ Raw Payload:`, req.response);
-				let stories = JSON.parse(req.response);
-				jmtyler.log(`[REQUEST] ↳ Parsed Payload:`, stories);
-				stories = stories.reduce((acc, story) => {
-					acc[story.endpoint] = Object.assign(story, { current: 0 });
-					return acc;
-				}, {});
-				jmtyler.memory.set('stories', stories);
-				jmtyler.memory.set('active', 'story');
-				return resolve();
-			});
-			req.addEventListener('error',   (ev) => console.error('[REQUEST] ↳ Error:', ev, req));
-			req.addEventListener('abort',   (ev) => console.error('[REQUEST] ↳ Abort:', ev, req));
-			req.addEventListener('timeout', (ev) => console.error('[REQUEST] ↳ Timeout:', ev, req));
-			req.send();
-		});
+	const runFreshInstall = async () => {
+		// BLOCKER: Try/catch
+		const response = await jmtyler.request('GET', 'stories');
+		const stories = response.reduce((stories, story) => {
+			story.current = 0;
+			return Object.assign(stories, { [story.endpoint]: story });
+		}, {});
+
+		jmtyler.memory.set('stories', stories);
+		jmtyler.memory.set('active', 'story');
 	};
 
 	const runMigrations = async () => {
