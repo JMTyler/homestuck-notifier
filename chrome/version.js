@@ -29,6 +29,21 @@ jmtyler.version = (() => {
 			jmtyler.memory.clear('latest_update');
 			jmtyler.memory.clear('last_page_read');
 			jmtyler.settings.clear('check_frequency');
+
+			// Toss up a toast so users know the extension actually works again after months (years?) of being broken.
+			if (!jmtyler.settings.get('notifications_on')) {
+				return;
+			}
+
+			chrome.notifications.create({
+				title:   'MSPA Notifier',
+				message: 'finally works again and is now Homestuck Notifier!\n- It will notify you of any more future Epilogues. ;)',
+				iconUrl: jmtyler.settings.get('toast_icon_uri'),
+				type:    'basic',
+				silent:  true,
+
+				requireInteraction: true,
+			});
 		},
 	};
 
