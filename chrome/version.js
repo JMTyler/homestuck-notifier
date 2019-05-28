@@ -5,7 +5,6 @@ var jmtyler = jmtyler || {};
 jmtyler.version = (() => {
 	const migrations = {
 		'1557880371381 - 2.0.0 - Migrate from MSPA to Homestuck.com': async () => {
-			// BLOCKER: Try/catch
 			const response = await jmtyler.request('GET', 'stories');
 			const stories = response.reduce((stories, story) => {
 				story.current = 0;
@@ -34,7 +33,6 @@ jmtyler.version = (() => {
 	};
 
 	const runFreshInstall = async () => {
-		// BLOCKER: Try/catch
 		const response = await jmtyler.request('GET', 'stories');
 		const stories = response.reduce((stories, story) => {
 			story.current = 0;
@@ -90,21 +88,25 @@ jmtyler.version = (() => {
 				chrome.runtime.onInstalled.addListener(async ({ reason }) => {
 					jmtyler.log('onInstalled triggered', { previous: jmtyler.memory.get('version'), current: version, reason });
 
-					// If the latest version has already been fully installed, don't do anything. (Not sure how we got here, though.)
-					if (this.isInstalled(version)) {
-						jmtyler.log('new version has already been installed... aborting');
-						return;
-					}
+					try {
+						// If the latest version has already been fully installed, don't do anything. (Not sure how we got here, though.)
+						if (this.isInstalled(version)) {
+							jmtyler.log('new version has already been installed... aborting');
+							return;
+						}
 
-					// Install the latest version, performing any necessary migrations.
-					if (reason == 'install') {
-						await this.install(version);
-						jmtyler.memory.set('version', version);
-					}
+						// Install the latest version, performing any necessary migrations.
+						if (reason == 'install') {
+							await this.install(version);
+							jmtyler.memory.set('version', version);
+						}
 
-					if (reason == 'update') {
-						await this.update(version);
-						jmtyler.memory.set('version', version);
+						if (reason == 'update') {
+							await this.update(version);
+							jmtyler.memory.set('version', version);
+						}
+					} catch (err) {
+						return reject(err);
 					}
 
 					jmtyler.log('finished migration, running Main()');

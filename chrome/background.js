@@ -447,4 +447,8 @@ const ClearData = () => {
 	RenderButton({ icon: 'idle', count: 0 });
 };
 
-jmtyler.version.migrate().then(() => Main());
+jmtyler.version.migrate().then(() => Main()).catch((err) => {
+	console.error(err);
+	chrome.browserAction.setBadgeText({ text: '!' });
+	chrome.browserAction.setTitle({ title: 'Error! Please report a bug via the Chrome Webstore!' });
+});
