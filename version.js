@@ -16,7 +16,7 @@ jmtyler.version = (() => {
 			if (matches !== null) {
 				const mspaPage = parseInt(matches[1], 10);
 				const homestuckPage = mspaPage - 1900;
-				stories['story'].current = homestuckPage;
+				stories['story'].current = homestuckPage == 8129 ? 8130 : homestuckPage;
 			}
 			jmtyler.memory.set('stories', stories);
 			jmtyler.memory.set('active', 'story');
@@ -37,7 +37,7 @@ jmtyler.version = (() => {
 
 			chrome.notifications.create({
 				title:   'NEW Homestuck Notifier',
-				message: 'can now notify you of any more future Epilogues. ;)',
+				message: 'Can now notify you of any more future Epilogues! ;)',
 				iconUrl: 'icons/48.png',
 				type:    'basic',
 				silent:  true,
