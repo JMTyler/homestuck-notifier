@@ -1,6 +1,6 @@
 {
-	"name": "Homestuck Notifier",
-	"description": "Keeps track of your spot on Homestuck.com and notifies you of updates (such as The Epilogues).",
+	"name": "NEW Homestuck Notifier",
+	"description": "Notifies you of updates to Homestuck.com (such as The Epilogues) & keeps track of your progress.",
 	"version": "2.0.0",
 	"icons": {
 		"16": "icons/16.png",
