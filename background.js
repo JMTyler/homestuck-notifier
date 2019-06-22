@@ -43,15 +43,7 @@ const Main = () => {
 	// TODO: Probably just switch this out for an event emitter or something.
 	chrome.runtime.onMessage.addListener(({ method, args = {} }) => (OnMessage[method] ? OnMessage[method](args) : OnMessage.Unknown(method, args)));
 
-	// const vapidKey = 'BB0WW0ANGE7CquFTQC0n68DmkVrInd616DEi3pI5Yq8IKHv0v9qhvzkAInBjEw2zNfgx29JB2DAQkV_81ztYpTg';
-	// chrome.gcm.register([ vapidKey ], (registrationId) => {
-	// TODO: Debug mode should hook into a separate FCM account purely for testing.
-	chrome.instanceID.getToken({ authorizedEntity: '710329635775', scope: 'GCM' }, (token) => {
-		jmtyler.log('registered with gcm', token || chrome.runtime.lastError.message);
-
-		// Subscribe our new token to FCM.
-		jmtyler.request('POST', 'subscribe', { token });
-	});
+	Subscribe('Stories');
 
 	// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
 	chrome.gcm.onMessage.addListener(({ data: { event, ...args } }) => {
@@ -108,8 +100,9 @@ const OnMessage = {
 		TouchButton();
 	},
 	OnSettingsChange() {
+		const settings = jmtyler.settings.get();
+		chrome.contextMenus.update('toggle_page_counts', { checked: settings['show_page_count'] });
 		TouchButton();
-		chrome.contextMenus.update('toggle_page_counts', { checked: jmtyler.settings.get('show_page_count') });
 	},
 	Unknown(method, args) {
 		jmtyler.log('An unknown Runtime Message was received and therefore could not be processed:', method, args);
@@ -437,6 +430,45 @@ const InitializeContextMenus = () => {
 		id:       'toggle_page_counts',
 		title:    'Show Page Count',
 		contexts: ['browser_action'],
+	});
+};
+
+const Subscribe = (topic, retries = 20) => {
+	if (!topic) {
+		return;
+	}
+
+	if (retries == 0) {
+		jmtyler.log('failed to register with gcm (FOR THE LAST TIME!):', chrome.runtime.lastError.message);
+		return;
+	}
+
+	// TODO: Debug mode should hook into a separate FCM account purely for testing.
+	chrome.instanceID.getToken({ authorizedEntity: '710329635775', scope: 'GCM' }, (token) => {
+		if (!token) {
+			jmtyler.log('failed to register with gcm (retrying):', chrome.runtime.lastError.message);
+			return Subscribe(topic, --retries);
+		}
+		jmtyler.request('POST', 'subscribe', { topic, token });
+	});
+};
+
+const Unsubscribe = (topic, retries = 20) => {
+	if (!topic) {
+		return;
+	}
+
+	if (retries == 0) {
+		jmtyler.log('failed to register with gcm (FOR THE LAST TIME!):', chrome.runtime.lastError.message);
+		return;
+	}
+
+	chrome.instanceID.getToken({ authorizedEntity: '710329635775', scope: 'GCM' }, (token) => {
+		if (!token) {
+			jmtyler.log('failed to register with gcm (retrying):', chrome.runtime.lastError.message);
+			return Unsubscribe(topic, --retries);
+		}
+		jmtyler.request('POST', 'unsubscribe', { topic, token });
 	});
 };
 
