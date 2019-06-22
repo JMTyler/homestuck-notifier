@@ -8,11 +8,11 @@ let icons = {
 
 /* Main */
 
-const Main = () => {
+const Main = async () => {
 	jmtyler.log('executing Main()');
 
 	chrome.browserAction.setBadgeBackgroundColor({ color: '#BB0000' });
-	if (jmtyler.settings.get('is_debug_mode')) {
+	if (await jmtyler.storage.get('isDebugMode')) {
 		icons = {
 			idle:   { '16': 'icons/2B_16.png', '32': 'icons/2B_32.png' },
 			potato: { '16': 'icons/2B_16.png', '32': 'icons/2B_32.png' },
@@ -27,9 +27,9 @@ const Main = () => {
 
 	// After startup, make sure the browser action still looks as it should with context.
 	const story = GetActiveStory();
-	RenderButton({ icon: 'idle', story, count: (story.target || story.pages) - story.current });
+	await RenderButton({ icon: 'idle', story, count: (story.target || story.pages) - story.current });
 
-	InitializeContextMenus();
+	await InitializeContextMenus();
 	RenderContextMenus();
 
 	// TODO: Apparently listeners must be registered synchronously, before we can convert this background script to an event script.
@@ -44,7 +44,7 @@ const Main = () => {
 	chrome.runtime.onMessage.addListener(({ method, args = {} }) => (OnMessage[method] ? OnMessage[method](args) : OnMessage.Unknown(method, args)));
 
 	Subscribe('Stories');
-	Subscribe('RC_' + jmtyler.settings.get('reading_club'));
+	Subscribe('RC_' + await jmtyler.storage.get('readingClub'));
 
 	// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
 	chrome.gcm.onMessage.addListener(({ data: { event, ...args } }) => {
@@ -59,7 +59,7 @@ const Main = () => {
 /* Event Handlers */
 
 const OnMessage = {
-	Potato({ endpoint, title, subtitle, pages }) {
+	async Potato({ endpoint, title, subtitle, pages }) {
 		pages = parseInt(pages, 10);
 		let toastType = 'new_pages';
 		const stories = jmtyler.memory.get('stories');
@@ -86,35 +86,35 @@ const OnMessage = {
 		stories[endpoint].pages = pages;
 		jmtyler.memory.set('stories', stories);
 
-		RenderButton({ icon: 'potato' });
-		TouchButton();
+		await RenderButton({ icon: 'potato' });
+		await TouchButton();
 		RenderContextMenus();
 
-		ShowToast(toastType, stories[endpoint], potatoSize);
+		await ShowToast(toastType, stories[endpoint], potatoSize);
 	},
-	SyncStory(story) {
+	async SyncStory(story) {
 		story.pages = parseInt(story.pages, 10);
 		const stories = jmtyler.memory.get('stories');
 		Object.assign(stories[story.endpoint], story);
 		jmtyler.memory.set('stories', stories);
 		RenderContextMenus();
-		TouchButton();
+		await TouchButton();
 	},
-	SetReadingTarget({ endpoint, target }) {
+	async SetReadingTarget({ endpoint, target }) {
 		jmtyler.log('updating page target to', target);
 		const stories = jmtyler.memory.get('stories');
 		stories[endpoint].target = target;
 		jmtyler.memory.set('stories', stories);
-		TouchButton();
+		await TouchButton();
 	},
-	OnSettingsChange({ previous }) {
-		const settings = jmtyler.settings.get();
+	async OnSettingsChange({ previous }) {
+		const data = await jmtyler.storage.get();
 
-		chrome.contextMenus.update('toggle_page_counts', { checked: settings['show_page_count'] });
+		chrome.contextMenus.update('toggle_page_counts', { checked: data['showPageCount'] });
 
-		if (settings['reading_club'] != previous['reading_club']) {
-			Unsubscribe('RC_' + previous['reading_club']);
-			Subscribe('RC_' + settings['reading_club']);
+		if (data['readingClub'] != previous['readingClub']) {
+			Unsubscribe('RC_' + previous['readingClub']);
+			Subscribe('RC_' + data['readingClub']);
 
 			const stories = jmtyler.memory.get('stories');
 			Object.keys(stories).forEach((key) => {
@@ -123,7 +123,7 @@ const OnMessage = {
 			jmtyler.memory.set('stories', stories);
 		}
 
-		TouchButton();
+		await TouchButton();
 	},
 	Unknown(method, args) {
 		jmtyler.log('An unknown Runtime Message was received and therefore could not be processed:', method, args);
@@ -155,14 +155,14 @@ const OnMenuClick = async ({ menuItemId, pageUrl }) => {
 			if (urlMatcher.test(pageUrl)) {
 				jmtyler.memory.set('active', story.endpoint);
 				RenderContextMenus(pageUrl);
-				TouchButton();
+				await TouchButton();
 			}
 		});
 		return;
 	}
 	if (menuItemId == 'toggle_page_counts') {
-		const previous = jmtyler.settings.get();
-		jmtyler.settings.set('show_page_count', !previous['show_page_count']);
+		const previous = await jmtyler.storage.get();
+		await jmtyler.storage.set('showPageCount', !previous['showPageCount']);
 		OnMessage.OnSettingsChange({ previous });
 	}
 	if (menuItemId.startsWith('goto_')) {
@@ -172,7 +172,7 @@ const OnMenuClick = async ({ menuItemId, pageUrl }) => {
 	// TODO unknown menu item
 };
 
-const OnOverrideLastPageRead = (pageUrl) => {
+const OnOverrideLastPageRead = async (pageUrl) => {
 	const urlParts = pageUrl.match(HomestuckURLRegex);
 	const endpoint = urlParts[1];
 	const page     = parseInt(urlParts[3] || '0', 10);
@@ -183,7 +183,7 @@ const OnOverrideLastPageRead = (pageUrl) => {
 		return;
 	}
 
-	MarkPage(endpoint, page);
+	await MarkPage(endpoint, page);
 	RenderContextMenus(pageUrl);
 };
 
@@ -193,7 +193,7 @@ const OnTabChange = ({ tabId }) => {
 	});
 };
 
-const OnPageLoad = (_tabId, { url: currentPageUrl }) => {
+const OnPageLoad = async (_tabId, { url: currentPageUrl }) => {
 	if (!currentPageUrl) {
 		return;
 	}
@@ -216,7 +216,7 @@ const OnPageLoad = (_tabId, { url: currentPageUrl }) => {
 	}
 
 	if (currentPage > story.current) {
-		MarkPage(currentEndpoint, currentPage);
+		await MarkPage(currentEndpoint, currentPage);
 	}
 
 	RenderContextMenus(currentPageUrl);
@@ -249,18 +249,18 @@ const LaunchTab = (endpoint = null) => {
 
 /* Core Functions */
 
-const MarkPage = (endpoint, page) => {
+const MarkPage = async (endpoint, page) => {
 	const stories = jmtyler.memory.get('stories');
 	stories[endpoint].current = page;
 	jmtyler.memory.set('stories', stories);
 
 	const story = GetActiveStory();
 	const count = (story.target || story.pages) - story.current;
-	RenderButton({ icon: 'idle', count, story });
+	await RenderButton({ icon: 'idle', count, story });
 };
 
-const PlaySound = () => {
-	const toastSoundUri = jmtyler.settings.get('toast_sound_uri');
+const PlaySound = async () => {
+	const toastSoundUri = await jmtyler.storage.get('toastSoundUri');
 	if (!toastSoundUri) {
 		return;
 	}
@@ -283,14 +283,14 @@ const PlaySound = () => {
 	audio.src = toastSoundUri;
 };
 
-const ShowToast = (type, story, count) => {
-	if (!jmtyler.settings.get('notifications_on')) {
+const ShowToast = async (type, story, count) => {
+	if (!await jmtyler.storage.get('notificationsOn')) {
 		return;
 	}
 
 	const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
 
-	const iconUrl = jmtyler.settings.get('toast_icon_uri');
+	const iconUrl = await jmtyler.storage.get('toastIconUri');
 	const title   = 'Homestuck.com';
 	let message = ({
 		'new_story': `There's a brand new story: ${story.title}`,
@@ -298,7 +298,7 @@ const ShowToast = (type, story, count) => {
 		'new_pages': `There's been an update to ${fullTitle}!!!`,
 	})[type];
 
-	if (jmtyler.settings.get('show_page_count')) {
+	if (await jmtyler.storage.get('showPageCount')) {
 		message += `\n(There are ${count} new pages.)`;
 	}
 
@@ -319,12 +319,12 @@ const GetActiveStory = () => {
 	return GetStory(endpoint);
 };
 
-const RenderButton = ({ icon: iconKey, count, story }) => {
+const RenderButton = async ({ icon: iconKey, count, story }) => {
 	if (iconKey) {
 		chrome.browserAction.setIcon({ path: icons[iconKey] });
 	}
 
-	if (!jmtyler.settings.get('show_page_count')) {
+	if (!await jmtyler.storage.get('showPageCount')) {
 		chrome.browserAction.setBadgeText({ text: '' });
 	} else if (typeof count != 'undefined') {
 		chrome.browserAction.setBadgeText({ text: (count > 0 ? count.toString() : '') });
@@ -338,9 +338,9 @@ const RenderButton = ({ icon: iconKey, count, story }) => {
 	}
 };
 
-const TouchButton = () => {
+const TouchButton = async () => {
 	const story = GetActiveStory();
-	RenderButton({ story, count: (story.target || story.pages) - story.current });
+	await RenderButton({ story, count: (story.target || story.pages) - story.current });
 };
 
 const RenderContextMenus = (url) => {
@@ -405,7 +405,7 @@ const RenderContextMenus = (url) => {
 	});
 };
 
-const InitializeContextMenus = () => {
+const InitializeContextMenus = async () => {
 	chrome.contextMenus.create({
 		id:       'jump_to',
 		title:    'Jump to Story...',
@@ -448,7 +448,7 @@ const InitializeContextMenus = () => {
 
 	chrome.contextMenus.create({
 		type:     'checkbox',
-		checked:  jmtyler.settings.get('show_page_count'),
+		checked:  await jmtyler.storage.get('showPageCount'),
 		id:       'toggle_page_counts',
 		title:    'Show Page Count',
 		contexts: ['browser_action'],
@@ -495,10 +495,10 @@ const Unsubscribe = (topic, retries = 20) => {
 	});
 };
 
-const ClearData = () => {
-	jmtyler.settings.clear();
+const ClearData = async () => {
+	await jmtyler.storage.clear();
 	jmtyler.memory.clear();
-	RenderButton({ icon: 'idle', count: 0 });
+	await RenderButton({ icon: 'idle', count: 0 });
 };
 
 jmtyler.version.migrate().then(() => Main()).catch((err) => {

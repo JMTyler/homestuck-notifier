@@ -4,6 +4,7 @@
 var jmtyler = jmtyler || {};
 jmtyler.version = (() => {
 	const migrations = {
+		// BLOCKER: Rewrite all these to interact with localStorage directly.
 		'1557880371381 - 2.0.0 - Migrate from MSPA to Homestuck.com': async () => {
 			const response = await jmtyler.request('GET', 'stories');
 			const stories = response.reduce((stories, story) => {
@@ -75,13 +76,13 @@ jmtyler.version = (() => {
 		await migrationsToRun.reduce(async (flow, id) => {
 			await flow;
 
-			jmtyler.log('* migrating:', id, { settings: jmtyler.settings.get(), memory: jmtyler.memory.get() });
+			jmtyler.log('* migrating:', id, { settings: await jmtyler.storage.get(), memory: jmtyler.memory.get() });
 
 			await migrations[id]();
 			finishedMigrations.push(id);
 			jmtyler.memory.set('migrations', finishedMigrations);
 
-			jmtyler.log('** finished:', id, { settings: jmtyler.settings.get(), memory: jmtyler.memory.get() });
+			jmtyler.log('** finished:', id, { settings: await jmtyler.storage.get(), memory: jmtyler.memory.get() });
 		}, Promise.resolve());
 	};
 

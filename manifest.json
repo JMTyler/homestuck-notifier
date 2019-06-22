@@ -28,6 +28,7 @@
 		"contextMenus",
 		"gcm",
 		"notifications",
+		"storage",
 		"tabs",
 		"https://www.homestuck.com/*"
 	],

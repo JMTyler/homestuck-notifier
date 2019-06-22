@@ -100,21 +100,21 @@ jmtyler.settings = (function()
 })();
 
 // HACK: TODO: Move these to a better spot, but they still must realistically depend on jmtyler.settings
-jmtyler.log = (...args) => {
+jmtyler.log = async (...args) => {
 	// TODO: Add a production-debug mode that uploads logs to me.
-	if (jmtyler.settings.get('is_debug_mode')) {
+	if (await jmtyler.storage.get('isDebugMode')) {
 		console.log(...args);
 	}
 };
 
-jmtyler.api = (endpoint) => {
+jmtyler.api = async (endpoint) => {
 	// TODO: Debug mode in-the-wild could point to a separate Staging API (or even ngrok if I can manage it).
-	const baseUrl = jmtyler.settings.get('is_debug_mode') ? 'http://127.0.0.1/v1' : 'https://homestuck.herokuapp.com/v1';
+	const baseUrl = await jmtyler.storage.get('isDebugMode') ? 'http://127.0.0.1/v1' : 'https://homestuck.herokuapp.com/v1';
 	return `${baseUrl}/${endpoint}`;
 };
 
-jmtyler.request = (method, endpoint, payload) => {
-	const url = jmtyler.api(endpoint);
+jmtyler.request = async (method, endpoint, payload) => {
+	const url = await jmtyler.api(endpoint);
 	payload = JSON.stringify(payload || {});
 
 	jmtyler.log(`[REQUEST] ${method} ${url} -- ${payload}`);

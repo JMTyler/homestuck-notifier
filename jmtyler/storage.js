@@ -4,75 +4,67 @@
 
 var jmtyler = jmtyler || {};
 jmtyler.storage = (() => {
-	let _settings = null;
-
-	const _defaults = {
-		'notifications_on': true,
-		'show_page_count':  false,
-		'toast_icon_uri':   'icons/48.png',
-		'is_debug_mode':    false,
-		'reading_club':     null,
+	const defaults = {
+		notificationsOn: true,
+		showPageCount:   false,
+		toastIconUri:    'icons/48.png',
+		toastSoundUri:   null,
+		isDebugMode:     false,
+		readingClub:     null,
 	};
 
-	const _load = () => {
-		_settings = {};
-		if (typeof(localStorage['options']) != 'undefined') {
-			_settings = JSON.parse(localStorage['options']);
-		}
-
-		for (let key in _defaults) {
-			if (!_defaults.hasOwnProperty(key)) {
-				continue;
-			}
-
-			if (typeof(_settings[key]) == 'undefined') {
-				_settings[key] = _defaults[key];
-			}
-		}
-	};
-
-	const _save = () => {
-		if (_settings === null) {
-			// Nothing to save!
-			return;
-		}
-
-		localStorage['options'] = JSON.stringify(_settings);
-	};
-
-	return {
-		get(key) {
-			_load();
-
-			if (typeof(key) == 'undefined') {
-				return _settings;
-			}
-
-			if (typeof(_settings[key]) == 'undefined') {
-				return null;
-			}
-
-			return _settings[key];
+	const storage = {
+		get(key = null) {
+			return new Promise((resolve, reject) => {
+				chrome.storage.local.get(key, (result) => {
+					if (typeof result == 'undefined') {
+						// BLOCKER: Reject with lastError directly if it's already an error object.
+						reject(new Error(chrome.runtime.lastError.message));
+						return;
+					}
+					// BLOCKER: Defaults?
+					resolve(key ? result[key] : result);
+				});
+			});
 		},
 		set(key, value) {
-			_load();
-			_settings[key] = value;
-			_save();
-
-			return this;
-		},
-		clear(key) {
-			if (typeof(key) == 'undefined' || key === null) {
-				_settings = {};
-				_save();
-				return this;
+			let data = key;
+			if (typeof value != 'undefined') {
+				data = { [key]: value };
 			}
 
-			_load();
-			delete _settings[key];
-			_save();
+			return new Promise((resolve, reject) => {
+				chrome.storage.local.set(data, () => {
+					const err = chrome.runtime.lastError.message;
+					if (err) {
+						reject(new Error(err));
+						return;
+					}
+					// BLOCKER: I don't think I want method chaining anymore.
+					resolve(this);
+				});
+			});
+		},
+		clear(keys) {
+			return new Promise((resolve, reject) => {
+				const cb = () => {
+					const err = chrome.runtime.lastError.message;
+					if (err) {
+						reject(new Error(err));
+						return;
+					}
+					resolve(this);
+				};
 
-			return this;
+				if (!keys) {
+					chrome.storage.local.clear(cb);
+					return;
+				}
+
+				chrome.storage.local.remove(keys, cb);
+			});
 		},
 	};
+
+	return storage;
 })();

@@ -41,8 +41,8 @@ $(() => {
 
 	$('#grpAccordion').accordion({ collapsible: true, active: false });
 
-	const _initializeSettings = () => {
-		const areNotificationsOn = jmtyler.settings.get('notifications_on');
+	const _initializeSettings = async () => {
+		const areNotificationsOn = await jmtyler.storage.get('notificationsOn');
 		if (areNotificationsOn) {
 			$('#radToastOn').prop('checked', true);
 		} else {
@@ -50,7 +50,7 @@ $(() => {
 		}
 		$('#radToastOff').button('refresh');
 
-		const doShowPageCount = jmtyler.settings.get('show_page_count');
+		const doShowPageCount = await jmtyler.storage.get('showPageCount');
 		if (doShowPageCount) {
 			$('#radShowCountOn').prop('checked', true);
 		} else {
@@ -58,37 +58,40 @@ $(() => {
 		}
 		$('#radShowCountOff').button('refresh');
 
-		toastIconUri = jmtyler.settings.get('toast_icon_uri');
+		toastIconUri = await jmtyler.storage.get('toastIconUri');
 		$('#imgToastIcon').prop('src', toastIconUri);
 
-		toastSoundUri = jmtyler.settings.get('toast_sound_uri');
+		toastSoundUri = await jmtyler.storage.get('toastSoundUri');
 		$('#audToastSound').prop('src', toastSoundUri);
 
-		const readingClub = jmtyler.settings.get('reading_club');
+		const readingClub = await jmtyler.storage.get('readingClub');
 		$('#txtReadingClub').prop('value', readingClub);
 	};
 
 	// TODO: eventually implement live edit
 	$('#btnSave').button();
 	$('#btnSave').on('click', () => {
-		const areNotificationsOn = $('#radToast :radio:checked').val() == 'on';
-		const doShowPageCount    = $('#radShowCount :radio:checked').val() == 'on';
-		const readingClub        = $('#txtReadingClub').val();
+		const notificationsOn = $('#radToast :radio:checked').val() == 'on';
+		const showPageCount   = $('#radShowCount :radio:checked').val() == 'on';
+		const readingClub     = $('#txtReadingClub').val();
 
-		const previous = jmtyler.settings.get();
-		jmtyler.settings.set('notifications_on', areNotificationsOn)
-			.set('show_page_count', doShowPageCount)
-			.set('toast_icon_uri', toastIconUri)
-			.set('toast_sound_uri', toastSoundUri)
-			.set('reading_club', readingClub);
+		const previous = await jmtyler.storage.get();
+		await jmtyler.storage.set({
+			notificationsOn,
+			showPageCount,
+			toastIconUri,
+			toastSoundUri,
+			readingClub,
+		});
 
 		chrome.runtime.sendMessage({ method: 'OnSettingsChange', args: { previous } });
 	});
 
 	$('#btnReset').button();
 	$('#btnReset').on('click', () => {
-		const previous = jmtyler.settings.get();
-		jmtyler.settings.clear();
+		const previous = await jmtyler.storage.get();
+		// BLOCKER: Don't do this! It'll clear the app memory as well!
+		// await jmtyler.storage.clear();
 		_initializeSettings();
 		chrome.runtime.sendMessage({ method: 'OnSettingsChange', args: { previous } });
 	});
