@@ -75,20 +75,22 @@ $(() => {
 		const doShowPageCount    = $('#radShowCount :radio:checked').val() == 'on';
 		const readingClub        = $('#txtReadingClub').val();
 
+		const previous = jmtyler.settings.get();
 		jmtyler.settings.set('notifications_on', areNotificationsOn)
 			.set('show_page_count', doShowPageCount)
 			.set('toast_icon_uri', toastIconUri)
 			.set('toast_sound_uri', toastSoundUri)
 			.set('reading_club', readingClub);
 
-		chrome.runtime.sendMessage({ method: 'OnSettingsChange' });
+		chrome.runtime.sendMessage({ method: 'OnSettingsChange', args: { previous } });
 	});
 
 	$('#btnReset').button();
 	$('#btnReset').on('click', () => {
+		const previous = jmtyler.settings.get();
 		jmtyler.settings.clear();
 		_initializeSettings();
-		chrome.runtime.sendMessage({ method: 'OnSettingsChange' });
+		chrome.runtime.sendMessage({ method: 'OnSettingsChange', args: { previous } });
 	});
 
 	_initializeSettings();

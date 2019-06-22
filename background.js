@@ -107,9 +107,22 @@ const OnMessage = {
 		jmtyler.memory.set('stories', stories);
 		TouchButton();
 	},
-	OnSettingsChange() {
+	OnSettingsChange({ previous }) {
 		const settings = jmtyler.settings.get();
+
 		chrome.contextMenus.update('toggle_page_counts', { checked: settings['show_page_count'] });
+
+		if (settings['reading_club'] != previous['reading_club']) {
+			Unsubscribe('RC_' + previous['reading_club']);
+			Subscribe('RC_' + settings['reading_club']);
+
+			const stories = jmtyler.memory.get('stories');
+			Object.keys(stories).forEach((key) => {
+				stories[key].target = null;
+			});
+			jmtyler.memory.set('stories', stories);
+		}
+
 		TouchButton();
 	},
 	Unknown(method, args) {
@@ -148,8 +161,9 @@ const OnMenuClick = async ({ menuItemId, pageUrl }) => {
 		return;
 	}
 	if (menuItemId == 'toggle_page_counts') {
-		jmtyler.settings.set('show_page_count', !jmtyler.settings.get('show_page_count'));
-		OnMessage.OnSettingsChange();
+		const previous = jmtyler.settings.get();
+		jmtyler.settings.set('show_page_count', !previous['show_page_count']);
+		OnMessage.OnSettingsChange({ previous });
 	}
 	if (menuItemId.startsWith('goto_')) {
 		const endpoint = menuItemId.substr(5);
