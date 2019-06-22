@@ -27,7 +27,7 @@ const Main = () => {
 
 	// After startup, make sure the browser action still looks as it should with context.
 	const story = GetActiveStory();
-	RenderButton({ icon: 'idle', story, count: story.pages - story.current });
+	RenderButton({ icon: 'idle', story, count: (story.target || story.pages) - story.current });
 
 	InitializeContextMenus();
 	RenderContextMenus();
@@ -233,7 +233,7 @@ const MarkPage = (endpoint, page) => {
 	jmtyler.memory.set('stories', stories);
 
 	const story = GetActiveStory();
-	const count = story.pages - story.current;
+	const count = (story.target || story.pages) - story.current;
 	RenderButton({ icon: 'idle', count, story });
 };
 
@@ -318,7 +318,7 @@ const RenderButton = ({ icon: iconKey, count, story }) => {
 
 const TouchButton = () => {
 	const story = GetActiveStory();
-	RenderButton({ story, count: story.pages - story.current });
+	RenderButton({ story, count: (story.target || story.pages) - story.current });
 };
 
 const RenderContextMenus = (url) => {
