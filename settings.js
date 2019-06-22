@@ -8,10 +8,11 @@ jmtyler.settings = (function()
 	var _settings = null;
 
 	var _defaults = {
-		'notifications_on' : true,
-		'show_page_count'  : false,
-		'toast_icon_uri'   : 'icons/48.png',
-		'is_debug_mode'    : false
+		'notifications_on': true,
+		'show_page_count':  false,
+		'toast_icon_uri':   'icons/48.png',
+		'is_debug_mode':    false,
+		'reading_club':     null,
 	};
 
 	var _load = function()

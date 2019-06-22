@@ -61,6 +61,9 @@ $(() => {
 
 		toastSoundUri = jmtyler.settings.get('toast_sound_uri');
 		$('#audToastSound').prop('src', toastSoundUri);
+
+		const readingClub = jmtyler.settings.get('reading_club');
+		$('#txtReadingClub').prop('value', readingClub);
 	};
 
 	// TODO: eventually implement live edit
@@ -68,11 +71,13 @@ $(() => {
 	$('#btnSave').on('click', () => {
 		const areNotificationsOn = $('#radToast :radio:checked').val() == 'on';
 		const doShowPageCount    = $('#radShowCount :radio:checked').val() == 'on';
+		const readingClub        = $('#txtReadingClub').val();
 
 		jmtyler.settings.set('notifications_on', areNotificationsOn)
 			.set('show_page_count', doShowPageCount)
 			.set('toast_icon_uri', toastIconUri)
-			.set('toast_sound_uri', toastSoundUri);
+			.set('toast_sound_uri', toastSoundUri)
+			.set('reading_club', readingClub);
 
 		chrome.runtime.sendMessage({ method: 'OnSettingsChange' });
 	});

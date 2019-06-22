@@ -45,6 +45,15 @@ jmtyler.version = (() => {
 				requireInteraction: true,
 			});
 		},
+		'1560482007473 - 2.1.0 - Reading Clubs': async () => {
+			const stories = jmtyler.memory.get('stories');
+			Object.keys(stories).forEach((key) => {
+				if (!stories[key].target) {
+					stories[key].target = null;
+				}
+			});
+			jmtyler.memory.set('stories', stories);
+		},
 	};
 
 	const runFreshInstall = async () => {
@@ -94,6 +103,7 @@ jmtyler.version = (() => {
 				const version = chrome.runtime.getManifest().version;
 				jmtyler.log('checking if current version has been installed... ' + (this.isInstalled(version) ? 'yes' : 'no'));
 
+				// TODO: We should check if there are any outstanding migrations regardless of version.
 				if (this.isInstalled(version)) {
 					// Only run the main process immediately if the latest version has already been fully installed.
 					jmtyler.log('current version is already installed, running Main() immediately');
