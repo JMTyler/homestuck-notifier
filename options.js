@@ -39,6 +39,8 @@ $(() => {
 		fileReader.readAsDataURL(file);
 	});
 
+	$('#grpAccordion').accordion({ collapsible: true, active: false });
+
 	const _initializeSettings = () => {
 		const areNotificationsOn = jmtyler.settings.get('notifications_on');
 		if (areNotificationsOn) {
