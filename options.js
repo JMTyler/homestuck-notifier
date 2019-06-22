@@ -1,47 +1,46 @@
 
-$(function() {
-	var toastIconUri = null,
-		toastSoundUri = null;
+$(() => {
+	let toastIconUri = null;
+	let toastSoundUri = null;
 
 	$('#lblVersion').text(chrome.runtime.getManifest().version);
 
 	$('#radToast').buttonset();
 	$('#radShowCount').buttonset();
 
-	$('#fileToastIcon').on('change', function(event) {
-		var file = event.target.files[0];  // TODO: can this array be empty?
+	$('#fileToastIcon').on('change', (event) => {
+		const file = event.target.files[0];  // TODO: can this array be empty?
 		if (!file.type.match('image.*')) {
 			// TODO: display an error of some kind
 			return;
 		}
 		// TODO: worthwhile to encapsulate file operations?
-		var fileReader = new FileReader();
-		fileReader.onload = function(event) {
+		const fileReader = new FileReader();
+		fileReader.onload = (event) => {
 			toastIconUri = event.target.result;
 			$('#imgToastIcon').prop('src', toastIconUri);
 		};
 		fileReader.readAsDataURL(file);
 	});
 
-	$('#fileToastSound').on('change', function(event) {
-		var file = event.target.files[0];  // TODO: can this array be empty?
+	$('#fileToastSound').on('change', (event) => {
+		const file = event.target.files[0];  // TODO: can this array be empty?
 		if (!file.type.match('audio.*')) {
 			// TODO: display an error of some kind
 			//		 specifically for midis... I bet a lot of people will want midis
 			return;
 		}
 		// TODO: worthwhile to encapsulate file operations?
-		var fileReader = new FileReader();
-		fileReader.onload = function(event) {
+		const fileReader = new FileReader();
+		fileReader.onload = (event) => {
 			toastSoundUri = event.target.result;
 			$('#audToastSound').prop('src', toastSoundUri);
 		};
 		fileReader.readAsDataURL(file);
 	});
 
-	var _initializeSettings = function()
-	{
-		var areNotificationsOn = jmtyler.settings.get('notifications_on');
+	const _initializeSettings = () => {
+		const areNotificationsOn = jmtyler.settings.get('notifications_on');
 		if (areNotificationsOn) {
 			$('#radToastOn').prop('checked', true);
 		} else {
@@ -49,7 +48,7 @@ $(function() {
 		}
 		$('#radToastOff').button('refresh');
 
-		var doShowPageCount = jmtyler.settings.get('show_page_count');
+		const doShowPageCount = jmtyler.settings.get('show_page_count');
 		if (doShowPageCount) {
 			$('#radShowCountOn').prop('checked', true);
 		} else {
@@ -66,9 +65,9 @@ $(function() {
 
 	// TODO: eventually implement live edit
 	$('#btnSave').button();
-	$('#btnSave').on('click', function() {
-		var areNotificationsOn = $('#radToast :radio:checked').val() == 'on',
-			doShowPageCount    = $('#radShowCount :radio:checked').val() == 'on';
+	$('#btnSave').on('click', () => {
+		const areNotificationsOn = $('#radToast :radio:checked').val() == 'on';
+		const doShowPageCount    = $('#radShowCount :radio:checked').val() == 'on';
 
 		jmtyler.settings.set('notifications_on', areNotificationsOn)
 			.set('show_page_count', doShowPageCount)
@@ -79,7 +78,7 @@ $(function() {
 	});
 
 	$('#btnReset').button();
-	$('#btnReset').on('click', function() {
+	$('#btnReset').on('click', () => {
 		jmtyler.settings.clear();
 		_initializeSettings();
 		chrome.runtime.sendMessage({ method: 'OnSettingsChange' });
