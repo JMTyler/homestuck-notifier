@@ -44,6 +44,7 @@ const Main = () => {
 	chrome.runtime.onMessage.addListener(({ method, args = {} }) => (OnMessage[method] ? OnMessage[method](args) : OnMessage.Unknown(method, args)));
 
 	Subscribe('Stories');
+	Subscribe('RC_' + jmtyler.settings.get('reading_club'));
 
 	// TODO: Now that we're using FCM, we should be able to switch to a nonpersistent background script, right?
 	chrome.gcm.onMessage.addListener(({ data: { event, ...args } }) => {
@@ -97,6 +98,13 @@ const OnMessage = {
 		Object.assign(stories[story.endpoint], story);
 		jmtyler.memory.set('stories', stories);
 		RenderContextMenus();
+		TouchButton();
+	},
+	SetReadingTarget({ endpoint, target }) {
+		jmtyler.log('updating page target to', target);
+		const stories = jmtyler.memory.get('stories');
+		stories[endpoint].target = target;
+		jmtyler.memory.set('stories', stories);
 		TouchButton();
 	},
 	OnSettingsChange() {
@@ -434,7 +442,8 @@ const InitializeContextMenus = () => {
 };
 
 const Subscribe = (topic, retries = 20) => {
-	if (!topic) {
+	// HACK: Definitely need a cleaner systemic way to handle an empty reading club. Maybe post- React refactor?
+	if (!topic || topic == 'RC_') {
 		return;
 	}
 
@@ -454,7 +463,7 @@ const Subscribe = (topic, retries = 20) => {
 };
 
 const Unsubscribe = (topic, retries = 20) => {
-	if (!topic) {
+	if (!topic || topic == 'RC_') {
 		return;
 	}
 
