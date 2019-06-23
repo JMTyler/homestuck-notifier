@@ -26,7 +26,7 @@ const Main = async () => {
 	}
 
 	// After startup, make sure the browser action still looks as it should with context.
-	const story = GetActiveStory();
+	const story = await GetActiveStory();
 	await RenderButton({ icon: 'idle', story, count: (story.target || story.pages) - story.current });
 
 	await InitializeContextMenus();
@@ -61,10 +61,12 @@ const Main = async () => {
 const OnMessage = {
 	async Potato({ endpoint, title, subtitle, pages }) {
 		pages = parseInt(pages, 10);
+
 		let toastType = 'new_pages';
-		const stories = jmtyler.memory.get('stories');
-		if (!stories[endpoint]) {
-			stories[endpoint] = {
+		let story = await jmtyler.storage.get(`stories.${endpoint}`);
+		if (!story) {
+			toastType = 'new_story';
+			story = {
 				endpoint,
 				title,
 				subtitle,
@@ -72,19 +74,20 @@ const OnMessage = {
 				current: 0,
 			};
 
-			toastType = 'new_story';
-			for (const key in stories) {
+			const endpoints = await jmtyler.storage.get('stories');
+			for (const key of endpoints) {
+				const existing = await jmtyler.storage.get(`stories.${key}`);
 				// HACK: We really should have a more explicit record of known stories vs. arcs.
-				if (stories[key].title == title) {
+				if (existing.title == title) {
 					toastType = 'new_arc';
 					break;
 				}
 			}
 		}
 
-		const potatoSize = pages - stories[endpoint].pages;
-		stories[endpoint].pages = pages;
-		jmtyler.memory.set('stories', stories);
+		const potatoSize = pages - story.pages;
+		story.pages = pages;
+		await jmtyler.storage.set(`stories.${endpoint}`, story);
 
 		await RenderButton({ icon: 'potato' });
 		await TouchButton();
@@ -92,19 +95,21 @@ const OnMessage = {
 
 		await ShowToast(toastType, stories[endpoint], potatoSize);
 	},
-	async SyncStory(story) {
-		story.pages = parseInt(story.pages, 10);
-		const stories = jmtyler.memory.get('stories');
-		Object.assign(stories[story.endpoint], story);
-		jmtyler.memory.set('stories', stories);
+	async SyncStory(latest) {
+		latest.pages = parseInt(latest.pages, 10);
+		const story = await jmtyler.storage.get(`stories.${latest.endpoint}`);
+		Object.assign(story, latest);
+		await jmtyler.storage.set(`stories.${latest.endpoint}`, story);
+
 		RenderContextMenus();
 		await TouchButton();
 	},
 	async SetReadingTarget({ endpoint, target }) {
 		jmtyler.log('updating page target to', target);
-		const stories = jmtyler.memory.get('stories');
-		stories[endpoint].target = target;
-		jmtyler.memory.set('stories', stories);
+
+		const story = await jmtyler.storage.get(`stories.${endpoint}`);
+		story.target = target;
+		await jmtyler.storage.set(`stories.${endpoint}`, story);
 		await TouchButton();
 	},
 	async OnSettingsChange({ previous }) {
@@ -116,11 +121,12 @@ const OnMessage = {
 			Unsubscribe('RC_' + previous['readingClub']);
 			Subscribe('RC_' + data['readingClub']);
 
-			const stories = jmtyler.memory.get('stories');
+			const endpoints = await jmtyler.storage.get('stories');
+			const stories = await jmtyler.storage.get(endpoints.map((key) => `stories.${key}`));
 			Object.keys(stories).forEach((key) => {
 				stories[key].target = null;
 			});
-			jmtyler.memory.set('stories', stories);
+			await jmtyler.storage.set(stories);
 		}
 
 		await TouchButton();
@@ -147,17 +153,17 @@ const OnMenuClick = async ({ menuItemId, pageUrl }) => {
 		return OnOverrideLastPageRead(pageUrl);
 	}
 	if (menuItemId == 'set_active_story') {
-		const stories = jmtyler.memory.get('stories');
-		Object.keys(stories).forEach((key) => {
-			const story = stories[key];
-			const urlMatcher = new RegExp(`^https://www.homestuck.com/${story.endpoint}`);
+		const endpoints = await jmtyler.storage.get('stories');
+		for (const endpoint of endpoints) {
+			const urlMatcher = new RegExp(`^https://www.homestuck.com/${endpoint}`);
 
 			if (urlMatcher.test(pageUrl)) {
-				jmtyler.memory.set('active', story.endpoint);
+				await jmtyler.storage.set('active', endpoint);
 				RenderContextMenus(pageUrl);
 				await TouchButton();
+				break;
 			}
-		});
+		}
 		return;
 	}
 	if (menuItemId == 'toggle_page_counts') {
@@ -167,7 +173,7 @@ const OnMenuClick = async ({ menuItemId, pageUrl }) => {
 	}
 	if (menuItemId.startsWith('goto_')) {
 		const endpoint = menuItemId.substr(5);
-		return LaunchTab(endpoint);
+		return await LaunchTab(endpoint);
 	}
 	// TODO unknown menu item
 };
@@ -177,8 +183,8 @@ const OnOverrideLastPageRead = async (pageUrl) => {
 	const endpoint = urlParts[1];
 	const page     = parseInt(urlParts[3] || '0', 10);
 
-	const stories = jmtyler.memory.get('stories');
-	if (!stories[endpoint]) {
+	const story = await jmtyler.storage.get(`stories.${endpoint}`);
+	if (!story) {
 		// TODO: Should maybe inform the user this is not a comic page.
 		return;
 	}
@@ -208,8 +214,7 @@ const OnPageLoad = async (_tabId, { url: currentPageUrl }) => {
 	const currentEndpoint = urlParts[1];
 	const currentPage     = parseInt(urlParts[3] || '0', 10);
 
-	const stories = jmtyler.memory.get('stories');
-	const story = stories[currentEndpoint];
+	const story = await jmtyler.storage.get(`stories.${currentEndpoint}`);
 	if (!story) {
 		// This page IS on Homestuck.com, but is NOT a comic page.
 		return;
@@ -222,19 +227,19 @@ const OnPageLoad = async (_tabId, { url: currentPageUrl }) => {
 	RenderContextMenus(currentPageUrl);
 };
 
-const OnNotificationClick = (id) => {
+const OnNotificationClick = async (id) => {
 	chrome.notifications.clear(id);
 	// TODO: Should probably launch whatever story they just clicked.
-	LaunchTab();
+	await LaunchTab();
 };
 
 /**
  * Set button icon as idle, open a new tab with the last page read,
  * and set the new 'last page read' as the latest update available.
  */
-const LaunchTab = (endpoint = null) => {
+const LaunchTab = async (endpoint = null) => {
 	try {
-		const story = endpoint ? GetStory(endpoint) : GetActiveStory();
+		const story = endpoint ? await GetStory(endpoint) : await GetActiveStory();
 		jmtyler.log('executing LaunchTab()', story.endpoint);
 
 		let url = `https://www.homestuck.com/${story.endpoint}`;
@@ -250,11 +255,11 @@ const LaunchTab = (endpoint = null) => {
 /* Core Functions */
 
 const MarkPage = async (endpoint, page) => {
-	const stories = jmtyler.memory.get('stories');
-	stories[endpoint].current = page;
-	jmtyler.memory.set('stories', stories);
+	const story = await jmtyler.storage.get(`stories.${endpoint}`);
+	story.current = page;
+	await jmtyler.storage.set(`stories.${endpoint}`, story);
 
-	const story = GetActiveStory();
+	const story = await GetActiveStory();
 	const count = (story.target || story.pages) - story.current;
 	await RenderButton({ icon: 'idle', count, story });
 };
@@ -309,14 +314,13 @@ const ShowToast = async (type, story, count) => {
 
 /* Helpers */
 
-const GetStory = (endpoint) => {
-	const stories = jmtyler.memory.get('stories');
-	return stories[endpoint];
+const GetStory = async (endpoint) => {
+	return await jmtyler.storage.get(`stories.${endpoint}`);
 };
 
-const GetActiveStory = () => {
-	const endpoint = jmtyler.memory.get('active');
-	return GetStory(endpoint);
+const GetActiveStory = async () => {
+	const endpoint = await jmtyler.storage.get('active');
+	return await GetStory(endpoint);
 };
 
 const RenderButton = async ({ icon: iconKey, count, story }) => {
@@ -339,17 +343,16 @@ const RenderButton = async ({ icon: iconKey, count, story }) => {
 };
 
 const TouchButton = async () => {
-	const story = GetActiveStory();
+	const story = await GetActiveStory();
 	await RenderButton({ story, count: (story.target || story.pages) - story.current });
 };
 
 const RenderContextMenus = (url) => {
-	const stories = jmtyler.memory.get('stories');
-	const endpoints = Object.keys(stories);
+	const endpoints = await jmtyler.storage.get('stories');
 
 	// HACK: It's super inefficient to do this so often, but we need to release ASAP and we can clean it up later.
-	endpoints.reverse().forEach((key) => {
-		const story = stories[key];
+	endpoints.reverse().forEach(async (key) => {
+		const story = await jmtyler.storage.get(`stories.${key}`);
 		const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
 		chrome.contextMenus.remove(`goto_${story.endpoint}`, () => {
 			// TODO: There will be console errors here since we're not checking runtime.lastError.
@@ -380,9 +383,9 @@ const RenderContextMenus = (url) => {
 		return;
 	}
 
-	const activeStory = jmtyler.memory.get('active');
-	endpoints.forEach((key) => {
-		const story = stories[key];
+	const activeStory = await jmtyler.storage.get('active');
+	endpoints.forEach(async (key) => {
+		const story = await jmtyler.storage.get(`stories.${key}`);
 		// TODO: Add urlMatcher to story object.  Make it easy to lookup/match story by URL.  Make it easy to convert a URL into its equivalent story object.
 		const urlMatcher = new RegExp(`^https://www.homestuck.com/${story.endpoint}`);
 
@@ -412,10 +415,9 @@ const InitializeContextMenus = async () => {
 		contexts: ['browser_action'],
 	});
 
-	const stories = jmtyler.memory.get('stories');
-	const endpoints = Object.keys(stories);
-	endpoints.reverse().forEach((key) => {
-		const story = stories[key];
+	const endpoints = await jmtyler.storage.get('stories');
+	endpoints.reverse().forEach(async (key) => {
+		const story = await jmtyler.storage.get(`stories.${key}`);
 		const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
 		chrome.contextMenus.create({
 			parentId: 'jump_to',
@@ -497,7 +499,6 @@ const Unsubscribe = (topic, retries = 20) => {
 
 const ClearData = async () => {
 	await jmtyler.storage.clear();
-	jmtyler.memory.clear();
 	await RenderButton({ icon: 'idle', count: 0 });
 };
 

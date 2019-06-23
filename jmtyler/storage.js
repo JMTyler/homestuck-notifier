@@ -5,12 +5,17 @@
 var jmtyler = jmtyler || {};
 jmtyler.storage = (() => {
 	const defaults = {
+		// Options
 		notificationsOn: true,
 		showPageCount:   false,
 		toastIconUri:    'icons/48.png',
 		toastSoundUri:   null,
 		isDebugMode:     false,
 		readingClub:     null,
+
+		// Memory
+		active:  null,
+		stories: [],
 	};
 
 	const storage = {
@@ -23,7 +28,7 @@ jmtyler.storage = (() => {
 						return;
 					}
 					// BLOCKER: Defaults?
-					resolve(key ? result[key] : result);
+					resolve(key && !Array.isArray(key) ? result[key] : result);
 				});
 			});
 		},

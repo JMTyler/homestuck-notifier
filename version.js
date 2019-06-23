@@ -76,13 +76,13 @@ jmtyler.version = (() => {
 		await migrationsToRun.reduce(async (flow, id) => {
 			await flow;
 
-			jmtyler.log('* migrating:', id, { settings: await jmtyler.storage.get(), memory: jmtyler.memory.get() });
+			jmtyler.log('* migrating:', id, await jmtyler.storage.get());
 
 			await migrations[id]();
 			finishedMigrations.push(id);
 			jmtyler.memory.set('migrations', finishedMigrations);
 
-			jmtyler.log('** finished:', id, { settings: await jmtyler.storage.get(), memory: jmtyler.memory.get() });
+			jmtyler.log('** finished:', id, await jmtyler.storage.get());
 		}, Promise.resolve());
 	};
 
