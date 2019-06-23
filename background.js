@@ -63,7 +63,7 @@ const OnMessage = {
 		pages = parseInt(pages, 10);
 
 		let toastType = 'new_pages';
-		let story = await jmtyler.storage.get(`stories.${endpoint}`);
+		let story = await GetStory(endpoint);
 		if (!story) {
 			toastType = 'new_story';
 			story = {
@@ -76,7 +76,7 @@ const OnMessage = {
 
 			const endpoints = await jmtyler.storage.get('stories');
 			for (const key of endpoints) {
-				const existing = await jmtyler.storage.get(`stories.${key}`);
+				const existing = await GetStory(key);
 				// HACK: We really should have a more explicit record of known stories vs. arcs.
 				if (existing.title == title) {
 					toastType = 'new_arc';
@@ -97,7 +97,7 @@ const OnMessage = {
 	},
 	async SyncStory(latest) {
 		latest.pages = parseInt(latest.pages, 10);
-		const story = await jmtyler.storage.get(`stories.${latest.endpoint}`);
+		const story = await GetStory(latest.endpoint);
 		Object.assign(story, latest);
 		await jmtyler.storage.set(`stories.${latest.endpoint}`, story);
 
@@ -107,7 +107,7 @@ const OnMessage = {
 	async SetReadingTarget({ endpoint, target }) {
 		jmtyler.log('updating page target to', target);
 
-		const story = await jmtyler.storage.get(`stories.${endpoint}`);
+		const story = await GetStory(endpoint);
 		story.target = target;
 		await jmtyler.storage.set(`stories.${endpoint}`, story);
 		await TouchButton();
@@ -183,7 +183,7 @@ const OnOverrideLastPageRead = async (pageUrl) => {
 	const endpoint = urlParts[1];
 	const page     = parseInt(urlParts[3] || '0', 10);
 
-	const story = await jmtyler.storage.get(`stories.${endpoint}`);
+	const story = await GetStory(endpoint);
 	if (!story) {
 		// TODO: Should maybe inform the user this is not a comic page.
 		return;
@@ -214,7 +214,7 @@ const OnPageLoad = async (_tabId, { url: currentPageUrl }) => {
 	const currentEndpoint = urlParts[1];
 	const currentPage     = parseInt(urlParts[3] || '0', 10);
 
-	const story = await jmtyler.storage.get(`stories.${currentEndpoint}`);
+	const story = await GetStory(currentEndpoint);
 	if (!story) {
 		// This page IS on Homestuck.com, but is NOT a comic page.
 		return;
@@ -255,7 +255,7 @@ const LaunchTab = async (endpoint = null) => {
 /* Core Functions */
 
 const MarkPage = async (endpoint, page) => {
-	const story = await jmtyler.storage.get(`stories.${endpoint}`);
+	const story = await GetStory(endpoint);
 	story.current = page;
 	await jmtyler.storage.set(`stories.${endpoint}`, story);
 
@@ -352,7 +352,7 @@ const RenderContextMenus = (url) => {
 
 	// HACK: It's super inefficient to do this so often, but we need to release ASAP and we can clean it up later.
 	endpoints.reverse().forEach(async (key) => {
-		const story = await jmtyler.storage.get(`stories.${key}`);
+		const story = await GetStory(key);
 		const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
 		chrome.contextMenus.remove(`goto_${story.endpoint}`, () => {
 			// TODO: There will be console errors here since we're not checking runtime.lastError.
@@ -385,7 +385,7 @@ const RenderContextMenus = (url) => {
 
 	const activeStory = await jmtyler.storage.get('active');
 	endpoints.forEach(async (key) => {
-		const story = await jmtyler.storage.get(`stories.${key}`);
+		const story = await GetStory(key);
 		// TODO: Add urlMatcher to story object.  Make it easy to lookup/match story by URL.  Make it easy to convert a URL into its equivalent story object.
 		const urlMatcher = new RegExp(`^https://www.homestuck.com/${story.endpoint}`);
 
@@ -417,7 +417,7 @@ const InitializeContextMenus = async () => {
 
 	const endpoints = await jmtyler.storage.get('stories');
 	endpoints.reverse().forEach(async (key) => {
-		const story = await jmtyler.storage.get(`stories.${key}`);
+		const story = await GetStory(key);
 		const fullTitle = [story.title, story.subtitle].filter((v) => v).join(': ');
 		chrome.contextMenus.create({
 			parentId: 'jump_to',
