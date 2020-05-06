@@ -37,7 +37,7 @@ jmtyler.version = (() => {
 
 			chrome.notifications.create({
 				title:   'NEW Homestuck Notifier',
-				message: 'Can now notify you of any more future Epilogues! ;)',
+				message: 'Can now notify you of future Epilogues! ;)',
 				iconUrl: 'icons/48.png',
 				type:    'basic',
 				silent:  true,
