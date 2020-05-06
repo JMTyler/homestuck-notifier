@@ -47,7 +47,13 @@ const Main = () => {
 	// chrome.gcm.register([ vapidKey ], (registrationId) => {
 	// TODO: Debug mode should hook into a separate FCM account purely for testing.
 	chrome.instanceID.getToken({ authorizedEntity: '710329635775', scope: 'GCM' }, (token) => {
-		jmtyler.log('registered with gcm', token || chrome.runtime.lastError.message);
+		jmtyler.log('registered with gcm?', token || chrome.runtime.lastError.message);
+
+		if (!token) {
+			chrome.browserAction.setBadgeText({ text: '!' });
+			chrome.browserAction.setTitle({ title: 'Failed to connect to notifier service. Try reinstalling the extension.' });
+			return;
+		}
 
 		// Subscribe our new token to FCM.
 		jmtyler.request('POST', 'subscribe', { token });
